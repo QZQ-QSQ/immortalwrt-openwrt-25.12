@@ -13,97 +13,141 @@ echo "=============================================="
 
 # 安装 kenzok8/small 软件包
 echo "Installing packages from kenzok8/small..."
-./scripts/feeds update small
-./scripts/feeds install -a -p small
+./scripts/feeds update small 2>/dev/null || true
+./scripts/feeds install -a -p small 2>/dev/null || true
 
-# 安装第三方插件
-echo "Installing third-party plugins..."
-./scripts/feeds update adguardhome
-./scripts/feeds install luci-app-adguardhome
+# 安装 OpenClash
+echo "Installing OpenClash..."
+./scripts/feeds update openclash 2>/dev/null || true
+./scripts/feeds install luci-app-openclash 2>/dev/null || true
 
-./scripts/feeds update openclash
-./scripts/feeds install luci-app-openclash
+# 安装 AdGuardHome
+echo "Installing AdGuardHome..."
+./scripts/feeds update adguardhome 2>/dev/null || true
+./scripts/feeds install luci-app-adguardhome 2>/dev/null || true
 
-# 安装所有指定插件
-./scripts/feeds install AdGuardHome
-./scripts/feeds install cloudflared
-./scripts/feeds install luci-app-cloudflared
-./scripts/feeds install ksmbd
-./scripts/feeds install luci-app-ksmbd
-./scripts/feeds install luci-app-openclash
-./scripts/feeds install qbittorrent
-./scripts/feeds install luci-app-qbittorrent
-./scripts/feeds install tailscale
-./scripts/feeds install luci-app-tailscale
-./scripts/feeds install docker
-./scripts/feeds install dockerd
-./scripts/feeds install containerd
-./scripts/feeds install runc
-./scripts/feeds install luci-app-dockerman
-./scripts/feeds install filebrowser
-./scripts/feeds install luci-app-filebrowser
-./scripts/feeds install sqm-scripts
-./scripts/feeds install sqm-scripts-extra
-./scripts/feeds install luci-app-sqm
-./scripts/feeds install ttyd
-./scripts/feeds install luci-app-ttyd
-./scripts/feeds install vlmcsd
-./scripts/feeds install luci-app-vlmcsd
-./scripts/feeds install luci-app-diskman
-./scripts/feeds install luci-app-reboot
-./scripts/feeds install lxc
-./scripts/feeds install luci-app-lxc
-./scripts/feeds install luci-app-filemanager
-./scripts/feeds install daed
-./scripts/feeds install luci-app-daed
+# 安装 PassWall
+echo "Installing PassWall..."
+./scripts/feeds update passwall_packages 2>/dev/null || true
+./scripts/feeds install -p passwall_packages 2>/dev/null || true
+./scripts/feeds update passwall_luci 2>/dev/null || true
+./scripts/feeds install -p passwall_luci 2>/dev/null || true
+
+# 安装科学上网依赖
+echo "Installing VPN proxy dependencies..."
+./scripts/feeds install v2ray-geosite 2>/dev/null || true
+./scripts/feeds install v2ray-geoip 2>/dev/null || true
+./scripts/feeds install xray-core 2>/dev/null || true
+./scripts/feeds install shadowsocksr-libev 2>/dev/null || true
+./scripts/feeds install simple-obfs 2>/dev/null || true
+./scripts/feeds install trojan 2>/dev/null || true
+./scripts/feeds install trojan-plus 2>/dev/null || true
+./scripts/feeds install naiveproxy 2>/dev/null || true
+./scripts/feeds install redsocks2 2>/dev/null || true
+./scripts/feeds install hysteria 2>/dev/null || true
+./scripts/feeds install hysteria2 2>/dev/null || true
+./scripts/feeds install tuic-client 2>/dev/null || true
+./scripts/feeds install sing-box 2>/dev/null || true
+./scripts/feeds install chinadns-ng 2>/dev/null || true
+./scripts/feeds install smartdns 2>/dev/null || true
+./scripts/feeds install ipt2socks 2>/dev/null || true
+./scripts/feeds install tcping 2>/dev/null || true
+./scripts/feeds install dns2tcp 2>/dev/null || true
+
+# 安装科学上网 LuCI 应用
+echo "Installing VPN LuCI apps..."
+./scripts/feeds install luci-app-ssr-plus 2>/dev/null || true
+./scripts/feeds install luci-app-xray 2>/dev/null || true
+./scripts/feeds install luci-app-sing-box 2>/dev/null || true
+./scripts/feeds install luci-app-passwall 2>/dev/null || true
+./scripts/feeds install luci-app-passwall2 2>/dev/null || true
+
+# 安装其他插件
+echo "Installing other plugins..."
+./scripts/feeds install cloudflared 2>/dev/null || true
+./scripts/feeds install luci-app-cloudflared 2>/dev/null || true
+./scripts/feeds install ksmbd 2>/dev/null || true
+./scripts/feeds install luci-app-ksmbd 2>/dev/null || true
+./scripts/feeds install qbittorrent 2>/dev/null || true
+./scripts/feeds install luci-app-qbittorrent 2>/dev/null || true
+./scripts/feeds install tailscale 2>/dev/null || true
+./scripts/feeds install luci-app-tailscale 2>/dev/null || true
+./scripts/feeds install docker 2>/dev/null || true
+./scripts/feeds install dockerd 2>/dev/null || true
+./scripts/feeds install containerd 2>/dev/null || true
+./scripts/feeds install runc 2>/dev/null || true
+./scripts/feeds install luci-app-dockerman 2>/dev/null || true
+./scripts/feeds install filebrowser 2>/dev/null || true
+./scripts/feeds install luci-app-filebrowser 2>/dev/null || true
+./scripts/feeds install sqm-scripts 2>/dev/null || true
+./scripts/feeds install sqm-scripts-extra 2>/dev/null || true
+./scripts/feeds install luci-app-sqm 2>/dev/null || true
+./scripts/feeds install ttyd 2>/dev/null || true
+./scripts/feeds install luci-app-ttyd 2>/dev/null || true
+./scripts/feeds install vlmcsd 2>/dev/null || true
+./scripts/feeds install luci-app-vlmcsd 2>/dev/null || true
+./scripts/feeds install luci-app-diskman 2>/dev/null || true
+./scripts/feeds install luci-app-reboot 2>/dev/null || true
+./scripts/feeds install lxc 2>/dev/null || true
+./scripts/feeds install luci-app-lxc 2>/dev/null || true
+./scripts/feeds install luci-app-filemanager 2>/dev/null || true
 
 # 安装中文语言包
 echo "Installing Chinese language packs..."
-./scripts/feeds install luci-i18n-base-zh-cn
-./scripts/feeds install luci-i18n-admin-zh-cn
-./scripts/feeds install luci-i18n-firewall-zh-cn
-./scripts/feeds install luci-i18n-network-zh-cn
-./scripts/feeds install luci-i18n-system-zh-cn
-./scripts/feeds install luci-i18n-services-zh-cn
-./scripts/feeds install luci-i18n-status-zh-cn
-./scripts/feeds install luci-i18n-nas-zh-cn
-./scripts/feeds install luci-i18n-docker-zh-cn
-./scripts/feeds install luci-i18n-ddns-zh-cn
-./scripts/feeds install luci-i18n-upnp-zh-cn
-./scripts/feeds install luci-i18n-vpn-zh-cn
-./scripts/feeds install luci-i18n-samba-zh-cn
-./scripts/feeds install luci-i18n-commands-zh-cn
-./scripts/feeds install luci-i18n-filetransfer-zh-cn
+./scripts/feeds install luci-i18n-base-zh-cn 2>/dev/null || true
+./scripts/feeds install luci-i18n-admin-zh-cn 2>/dev/null || true
+./scripts/feeds install luci-i18n-firewall-zh-cn 2>/dev/null || true
+./scripts/feeds install luci-i18n-network-zh-cn 2>/dev/null || true
+./scripts/feeds install luci-i18n-system-zh-cn 2>/dev/null || true
+./scripts/feeds install luci-i18n-services-zh-cn 2>/dev/null || true
+./scripts/feeds install luci-i18n-status-zh-cn 2>/dev/null || true
+./scripts/feeds install luci-i18n-nas-zh-cn 2>/dev/null || true
+./scripts/feeds install luci-i18n-docker-zh-cn 2>/dev/null || true
+./scripts/feeds install luci-i18n-ddns-zh-cn 2>/dev/null || true
+./scripts/feeds install luci-i18n-upnp-zh-cn 2>/dev/null || true
+./scripts/feeds install luci-i18n-vpn-zh-cn 2>/dev/null || true
+./scripts/feeds install luci-i18n-samba-zh-cn 2>/dev/null || true
+./scripts/feeds install luci-i18n-commands-zh-cn 2>/dev/null || true
+./scripts/feeds install luci-i18n-filetransfer-zh-cn 2>/dev/null || true
 
 # 安装 USB 和 SATA 支持
 echo "Installing USB and SATA support..."
-./scripts/feeds install kmod-usb-core kmod-usb2 kmod-usb3 kmod-usb-storage
-./scripts/feeds install kmod-usb-ohci kmod-usb-uhci kmod-usb-ehci kmod-usb-xhci
-./scripts/feeds install kmod-sata-ahci kmod-sata-sil kmod-sata-sil24
-./scripts/feeds install kmod-ahci kmod-libata kmod-scsi-core
+./scripts/feeds install kmod-usb-core 2>/dev/null || true
+./scripts/feeds install kmod-usb2 2>/dev/null || true
+./scripts/feeds install kmod-usb3 2>/dev/null || true
+./scripts/feeds install kmod-usb-storage 2>/dev/null || true
+./scripts/feeds install kmod-usb-ohci 2>/dev/null || true
+./scripts/feeds install kmod-usb-ehci 2>/dev/null || true
+./scripts/feeds install kmod-usb-xhci 2>/dev/null || true
+./scripts/feeds install kmod-sata-ahci 2>/dev/null || true
+./scripts/feeds install kmod-ahci 2>/dev/null || true
+./scripts/feeds install kmod-libata 2>/dev/null || true
 
 # 安装文件系统支持
-./scripts/feeds install kmod-fs-ext4 kmod-fs-vfat kmod-fs-ntfs kmod-fs-ntfs3
-./scripts/feeds install kmod-fs-exfat kmod-fs-btrfs kmod-fuse
+./scripts/feeds install kmod-fs-ext4 2>/dev/null || true
+./scripts/feeds install kmod-fs-vfat 2>/dev/null || true
+./scripts/feeds install kmod-fs-ntfs 2>/dev/null || true
+./scripts/feeds install kmod-fs-exfat 2>/dev/null || true
+./scripts/feeds install kmod-fuse 2>/dev/null || true
 
-# 安装科学上网插件依赖
-echo "Installing VPN proxy dependencies..."
-./scripts/feeds install v2ray-geosite v2ray-geoip xray-core xray-plugin
-./scripts/feeds install sing-box sing-box-plugins
-./scripts/feeds install shadowsocksr-libev ssr-libev-server simple-obfs
-./scripts/feeds install trojan trojan-go trojan-plus
-./scripts/feeds install naiveproxy redsocks2 haproxy
-./scripts/feeds install microsocks shadow-tls hysteria hysteria2
-./scripts/feeds install tuic-client tuic-server dns2tcp
-./scripts/feeds install ipt2socks tcping
-./scripts/feeds install luci-app-ssr-plus luci-app-xray luci-app-sing-box
-./scripts/feeds install luci-app-openclash luci-app-passwall luci-app-passwall2
-./scripts/feeds install chinadns-ng smartdns luci-app-smartdns
+# 安装基础依赖
+echo "Installing base dependencies..."
+./scripts/feeds install curl 2>/dev/null || true
+./scripts/feeds install wget 2>/dev/null || true
+./scripts/feeds install git 2>/dev/null || true
+./scripts/feeds install htop 2>/dev/null || true
+./scripts/feeds install nano 2>/dev/null || true
+./scripts/feeds install tmux 2>/dev/null || true
+./scripts/feeds install bash 2>/dev/null || true
+./scripts/feeds install ca-bundle 2>/dev/null || true
+./scripts/feeds install ca-certificates 2>/dev/null || true
 
 # 禁用不需要的包
 echo "Disabling unwanted packages..."
-sed -i 's/CONFIG_PACKAGE_automount=y/CONFIG_PACKAGE_automount=n/' .config 2>/dev/null || true
-sed -i 's/CONFIG_PACKAGE_kmod-usb-storage-uas=y/CONFIG_PACKAGE_kmod-usb-storage-uas=n/' .config 2>/dev/null || true
+sed -i 's/CONFIG_PACKAGE_automount=y/CONFIG_PACKAGE_automount=n/g' .config 2>/dev/null || true
+sed -i 's/CONFIG_PACKAGE_kmod-usb-storage-uas=y/CONFIG_PACKAGE_kmod-usb-storage-uas=n/g' .config 2>/dev/null || true
+echo 'CONFIG_PACKAGE_automount=n' >> .config
+echo 'CONFIG_PACKAGE_kmod-usb-storage-uas=n' >> .config
 
 # 创建 LuCI 默认配置
 mkdir -p files/etc/config
@@ -148,13 +192,13 @@ config interface 'lan'
     option dns '223.5.5.5 114.114.114.114'
 
 config interface 'wan'
-    option device 'eth1'
+    option device 'eth0'
     option proto 'dhcp'
 
 config device
     option name 'br-lan'
     option type 'bridge'
-    list ports 'eth0'
+    list ports 'eth1'
 EOF
 
 # 创建防火墙默认配置
