@@ -1,47 +1,9 @@
-name: ImmortalWrt Builder
+name: Build ImmortalWrt
 
 on:
   workflow_dispatch:
-    inputs:
-      PPPoE_ENABLE:
-        description: 'Enable PPPoE'
-        required: false
-        default: 'false'
-        type: choice
-        options:
-          - 'false'
-          - 'true'
-      PPPoE_USERNAME:
-        description: 'PPPoE Username'
-        required: false
-        default: ''
-      PPPoE_PASSWORD:
-        description: 'PPPoE Password'
-        required: false
-        default: ''
-      WAN_IFACE:
-        description: 'WAN Interface'
-        required: false
-        default: 'eth0'
-        type: choice
-        options:
-          - eth0
-          - eth1
-          - eth2
-          - eth3
-      LAN_IFACE:
-        description: 'LAN Interface'
-        required: false
-        default: 'eth1'
-        type: choice
-        options:
-          - eth0
-          - eth1
-          - eth2
-          - eth3
-
   schedule:
-    - cron: 0 19 * * *
+    - cron: 0 20 * * *
 
 env:
   REPO_URL: https://github.com/immortalwrt/immortalwrt.git
@@ -53,12 +15,9 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-    - name: Initialization environment
-      env:
-        DEBIAN_FRONTEND: noninteractive
+    - name: Init Environment
       run: |
         sudo -E apt-get -qq update
         sudo -E apt-get -qq install -y $(curl -fsSL https://git.io/depends-ubuntu-2204)
@@ -66,74 +25,35 @@ jobs:
         sudo -E apt-get -qq clean
         sudo timedatectl set-timezone "$TZ"
 
-    - name: Clone source code
-      run: |
-        git clone $REPO_URL -b $REPO_BRANCH openwrt
-        cd openwrt
-        echo "OPENWRT_PATH=$PWD" >> $GITHUB_ENV
+    - name: Clone Source
+      run: git clone $REPO_URL -b $REPO_BRANCH openwrt
 
-    - name: Load diy-part1.sh
+    - name: Update Feeds
       run: |
         cd openwrt
-        if [ -f ../scripts/diy-part1.sh ]; then
-          chmod +x ../scripts/diy-part1.sh
-          bash ../scripts/diy-part1.sh
-        fi
-
-    - name: Update feeds
-      run: |
-        cd openwrt
+        echo "src-git small https://github.com/kenzok8/small.git;main" >> feeds.conf.default
         ./scripts/feeds update -a
         ./scripts/feeds install -a
 
-    - name: Load diy-part2.sh
+    - name: Install Packages
       run: |
         cd openwrt
-        if [ -f ../scripts/diy-part2.sh ]; then
-          chmod +x ../scripts/diy-part2.sh
-          bash ../scripts/diy-part2.sh
-        fi
+        ./scripts/feeds update small
+        ./scripts/feeds install -a -p small
 
-    - name: Create network config
+    - name: Generate Config
       run: |
         cd openwrt
-        mkdir -p files/etc/config
-        echo "config interface 'loopback'" > files/etc/config/network
-        echo "    option device 'lo'" >> files/etc/config/network
-        echo "    option proto 'static'" >> files/etc/config/network
-        echo "    option ipaddr '127.0.0.1'" >> files/etc/config/network
-        echo "" >> files/etc/config/network
-        echo "config interface 'lan'" >> files/etc/config/network
-        echo "    option device '${{ github.event.inputs.LAN_IFACE || 'eth1' }}'" >> files/etc/config/network
-        echo "    option proto 'static'" >> files/etc/config/network
-        echo "    option ipaddr '192.168.1.1'" >> files/etc/config/network
-        echo "    option netmask '255.255.255.0'" >> files/etc/config/network
-        echo "" >> files/etc/config/network
-        echo "config interface 'wan'" >> files/etc/config/network
-        echo "    option device '${{ github.event.inputs.WAN_IFACE || 'eth0' }}'" >> files/etc/config/network
-        if [ "${{ github.event.inputs.PPoE_ENABLE }}" = "true" ] && [ -n "${{ github.event.inputs.PPPoE_USERNAME }}" ]; then
-          echo "    option proto 'pppoe'" >> files/etc/config/network
-          echo "    option username '${{ github.event.inputs.PPPoE_USERNAME }}'" >> files/etc/config/network
-          echo "    option password '${{ github.event.inputs.PPPoE_PASSWORD }}'" >> files/etc/config/network
-        else
-          echo "    option proto 'dhcp'" >> files/etc/config/network
-        fi
-
-    - name: Generate .config
-      run: |
-        cd openwrt
-        cat > .config << 'CONFIGEOF'
+        cat > .config << 'EOF'
 CONFIG_TARGET_x86=y
 CONFIG_TARGET_x86_64=y
 CONFIG_TARGET_x86_64_Generic=y
 CONFIG_TARGET_PROFILE="GENERIC"
 CONFIG_TARGET_ALL_PROFILES=y
-CONFIG_TARGET_PER_DEVICE_ROOTFS=y
 CONFIG_TARGET_ROOTFS_SQUASHFS=y
 CONFIG_TARGET_ROOTFS_EXT4FS=y
 CONFIG_PACKAGE_luci=y
 CONFIG_PACKAGE_luci-base=y
-CONFIG_PACKAGE_luci-compat=y
 CONFIG_PACKAGE_luci-i18n-base-zh-cn=y
 CONFIG_PACKAGE_kmod-usb-core=y
 CONFIG_PACKAGE_kmod-usb2=y
@@ -147,33 +67,24 @@ CONFIG_PACKAGE_kmod-libata=y
 CONFIG_PACKAGE_kmod-fs-ext4=y
 CONFIG_PACKAGE_kmod-fs-vfat=y
 CONFIG_PACKAGE_kmod-fuse=y
-CONFIGEOF
+EOF
         make defconfig
 
-    - name: Download package
+    - name: Download
       run: |
         cd openwrt
         make download -j$(nproc)
-        find dl -size -1024c -exec rm -f {} \;
 
-    - name: Compile the firmware
+    - name: Compile
       id: compile
       run: |
         cd openwrt
-        echo -e "$(nproc) thread compile"
         make -j$(nproc) || make -j1 V=s
-        echo "status=success" >> $GITHUB_OUTPUT
         echo "date=$(date '+%Y%m%d%H%M%S')" >> $GITHUB_OUTPUT
 
-    - name: Organize files
-      run: |
-        cd openwrt/bin/targets/*/*
-        rm -rf packages
-        echo "FIRMWARE_PATH=$PWD" >> $GITHUB_ENV
-
-    - name: Upload firmware
+    - name: Upload
       uses: actions/upload-artifact@v4
       if: steps.compile.outputs.status == 'success'
       with:
         name: ImmortalWrt-${{ steps.compile.outputs.date }}
-        path: ${{ env.FIRMWARE_PATH }}
+        path: openwrt/bin/targets/*/*/*.img.gz
