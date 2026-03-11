@@ -1,7 +1,3 @@
-#=================================================
-# ImmortalWrt Builder
-#=================================================
-
 name: ImmortalWrt Builder
 
 on:
@@ -67,7 +63,7 @@ jobs:
 
     steps:
     - name: Checkout
-      uses: actions/checkout@main
+      uses: actions/checkout@v4
 
     - name: Initialization environment
       env:
@@ -92,87 +88,82 @@ jobs:
       run: |
         [ -e files ] && mv files openwrt/files
         cd openwrt
-        chmod +x $GITHUB_WORKSPACE/scripts/diy-part1.sh 2>/dev/null || true
-        $GITHUB_WORKSPACE/scripts/diy-part1.sh 2>/dev/null || true
+        if [ -f ../scripts/diy-part1.sh ]; then
+          chmod +x ../scripts/diy-part1.sh
+          bash ../scripts/diy-part1.sh
+        fi
 
     - name: Create network config
       run: |
         cd openwrt
         mkdir -p files/etc/config
-        cat > files/etc/config/network << NETCONF
-config interface 'loopback'
-    option device 'lo'
-    option proto 'static'
-    option ipaddr '127.0.0.1'
-    option netmask '255.0.0.0'
-
-config interface 'lan'
-    option device '${{ github.event.inputs.LAN_IFACE || 'eth1' }}'
-    option proto 'static'
-    option ipaddr '192.168.1.1'
-    option netmask '255.255.255.0'
-    option ip6assign '60'
-    option dns '223.5.5.5 114.114.114.114'
-NETCONF
+        echo "config interface 'loopback'" > files/etc/config/network
+        echo "    option device 'lo'" >> files/etc/config/network
+        echo "    option proto 'static'" >> files/etc/config/network
+        echo "    option ipaddr '127.0.0.1'" >> files/etc/config/network
+        echo "    option netmask '255.0.0.0'" >> files/etc/config/network
+        echo "" >> files/etc/config/network
+        echo "config interface 'lan'" >> files/etc/config/network
+        echo "    option device '${{ github.event.inputs.LAN_IFACE || 'eth1' }}'" >> files/etc/config/network
+        echo "    option proto 'static'" >> files/etc/config/network
+        echo "    option ipaddr '192.168.1.1'" >> files/etc/config/network
+        echo "    option netmask '255.255.255.0'" >> files/etc/config/network
+        echo "    option ip6assign '60'" >> files/etc/config/network
+        echo "    option dns '223.5.5.5 114.114.114.114'" >> files/etc/config/network
+        echo "" >> files/etc/config/network
+        echo "config interface 'wan'" >> files/etc/config/network
+        echo "    option device '${{ github.event.inputs.WAN_IFACE || 'eth0' }}'" >> files/etc/config/network
         if [ "${{ github.event.inputs.PPoE_ENABLE }}" = "true" ] && [ -n "${{ github.event.inputs.PPPoE_USERNAME }}" ]; then
-          cat >> files/etc/config/network << WANCONF
-config interface 'wan'
-    option device '${{ github.event.inputs.WAN_IFACE || 'eth0' }}'
-    option proto 'pppoe'
-    option username '${{ github.event.inputs.PPPoE_USERNAME }}'
-    option password '${{ github.event.inputs.PPPoE_PASSWORD }}'
-WANCONF
+          echo "    option proto 'pppoe'" >> files/etc/config/network
+          echo "    option username '${{ github.event.inputs.PPPoE_USERNAME }}'" >> files/etc/config/network
+          echo "    option password '${{ github.event.inputs.PPPoE_PASSWORD }}'" >> files/etc/config/network
         else
-          cat >> files/etc/config/network << WANCONF
-config interface 'wan'
-    option device '${{ github.event.inputs.WAN_IFACE || 'eth0' }}'
-    option proto 'dhcp'
-WANCONF
+          echo "    option proto 'dhcp'" >> files/etc/config/network
         fi
 
     - name: Update feeds
       run: |
         cd openwrt
-        ./scripts/feeds update -a 2>&1 || true
-        ./scripts/feeds install -a 2>&1 || true
+        ./scripts/feeds update -a
+        ./scripts/feeds install -a
 
     - name: Install packages
       run: |
         cd openwrt
-        chmod +x $GITHUB_WORKSPACE/scripts/diy-part2.sh 2>/dev/null || true
-        $GITHUB_WORKSPACE/scripts/diy-part2.sh 2>&1 || true
+        if [ -f ../scripts/diy-part2.sh ]; then
+          chmod +x ../scripts/diy-part2.sh
+          bash ../scripts/diy-part2.sh
+        fi
 
     - name: Generate .config
       run: |
         cd openwrt
-        cat > .config << CONFIGEND
-CONFIG_TARGET_x86=y
-CONFIG_TARGET_x86_64=y
-CONFIG_TARGET_x86_64_Generic=y
-CONFIG_TARGET_PROFILE="GENERIC"
-CONFIG_TARGET_ALL_PROFILES=y
-CONFIG_TARGET_PER_DEVICE_ROOTFS=y
-CONFIG_TARGET_ROOTFS_SQUASHFS=y
-CONFIG_TARGET_ROOTFS_EXT4FS=y
-CONFIG_PACKAGE_luci=y
-CONFIG_PACKAGE_luci-base=y
-CONFIG_PACKAGE_luci-compat=y
-CONFIG_PACKAGE_luci-i18n-base-zh-cn=y
-CONFIG_PACKAGE_luci-i18n-admin-zh-cn=y
-CONFIG_PACKAGE_kmod-usb-core=y
-CONFIG_PACKAGE_kmod-usb2=y
-CONFIG_PACKAGE_kmod-usb3=y
-CONFIG_PACKAGE_kmod-usb-storage=y
-CONFIG_PACKAGE_kmod-usb-storage-uas=n
-CONFIG_PACKAGE_automount=n
-CONFIG_PACKAGE_kmod-sata-ahci=y
-CONFIG_PACKAGE_kmod-ahci=y
-CONFIG_PACKAGE_kmod-libata=y
-CONFIG_PACKAGE_kmod-fs-ext4=y
-CONFIG_PACKAGE_kmod-fs-vfat=y
-CONFIG_PACKAGE_kmod-fs-ntfs=y
-CONFIG_PACKAGE_kmod-fuse=y
-CONFIGEND
+        echo 'CONFIG_TARGET_x86=y' > .config
+        echo 'CONFIG_TARGET_x86_64=y' >> .config
+        echo 'CONFIG_TARGET_x86_64_Generic=y' >> .config
+        echo 'CONFIG_TARGET_PROFILE="GENERIC"' >> .config
+        echo 'CONFIG_TARGET_ALL_PROFILES=y' >> .config
+        echo 'CONFIG_TARGET_PER_DEVICE_ROOTFS=y' >> .config
+        echo 'CONFIG_TARGET_ROOTFS_SQUASHFS=y' >> .config
+        echo 'CONFIG_TARGET_ROOTFS_EXT4FS=y' >> .config
+        echo 'CONFIG_PACKAGE_luci=y' >> .config
+        echo 'CONFIG_PACKAGE_luci-base=y' >> .config
+        echo 'CONFIG_PACKAGE_luci-compat=y' >> .config
+        echo 'CONFIG_PACKAGE_luci-i18n-base-zh-cn=y' >> .config
+        echo 'CONFIG_PACKAGE_luci-i18n-admin-zh-cn=y' >> .config
+        echo 'CONFIG_PACKAGE_kmod-usb-core=y' >> .config
+        echo 'CONFIG_PACKAGE_kmod-usb2=y' >> .config
+        echo 'CONFIG_PACKAGE_kmod-usb3=y' >> .config
+        echo 'CONFIG_PACKAGE_kmod-usb-storage=y' >> .config
+        echo 'CONFIG_PACKAGE_kmod-usb-storage-uas=n' >> .config
+        echo 'CONFIG_PACKAGE_automount=n' >> .config
+        echo 'CONFIG_PACKAGE_kmod-sata-ahci=y' >> .config
+        echo 'CONFIG_PACKAGE_kmod-ahci=y' >> .config
+        echo 'CONFIG_PACKAGE_kmod-libata=y' >> .config
+        echo 'CONFIG_PACKAGE_kmod-fs-ext4=y' >> .config
+        echo 'CONFIG_PACKAGE_kmod-fs-vfat=y' >> .config
+        echo 'CONFIG_PACKAGE_kmod-fs-ntfs=y' >> .config
+        echo 'CONFIG_PACKAGE_kmod-fuse=y' >> .config
         make defconfig
 
     - name: Download package
@@ -201,7 +192,7 @@ CONFIGEND
         echo "FIRMWARE_PATH=$PWD" >> $GITHUB_ENV
 
     - name: Upload firmware
-      uses: actions/upload-artifact@main
+      uses: actions/upload-artifact@v4
       if: steps.compile.outputs.status == 'success'
       with:
         name: ImmortalWrt-${{ steps.compile.outputs.date }}
