@@ -157,7 +157,7 @@ jobs:
           git clone $REPO_URL -b $REPO_BRANCH openwrt
           echo "OPENWRT_PATH=$GITHUB_WORKSPACE/openwrt" >> $GITHUB_ENV
           cd openwrt
-          VERSION=$(grep "DISTRIB_REVISION" package/base-files/files/etc/openwrt_release | cut -d "'" '{'2'}' | head -1)
+          VERSION=$(cat package/base-files/files/etc/openwrt_release | grep DISTRIB_REVISION | cut -d "'" -f2)
           echo "VERSION=${VERSION:-openwrt-25.12}" >> $GITHUB_ENV
           echo "status=success" >> $GITHUB_OUTPUT
 
@@ -168,9 +168,13 @@ jobs:
 
       - name: Load diy-part1.sh
         run: |
-          chmod +x $DIY_P1_SH
-          cd openwrt
-          $GITHUB_WORKSPACE/$DIY_P1_SH
+          if [ -e $GITHUB_WORKSPACE/scripts/diy-part1.sh ]; then
+            chmod +x $GITHUB_WORKSPACE/scripts/diy-part1.sh
+            cd openwrt
+            $GITHUB_WORKSPACE/scripts/diy-part1.sh
+          else
+            echo "diy-part1.sh not found, skipping..."
+          fi
 
       - name: Update Feeds
         id: update
@@ -182,9 +186,13 @@ jobs:
 
       - name: Load diy-part2.sh
         run: |
-          chmod +x $DIY_P2_SH
-          cd openwrt
-          $GITHUB_WORKSPACE/$DIY_P2_SH
+          if [ -e $GITHUB_WORKSPACE/scripts/diy-part2.sh ]; then
+            chmod +x $GITHUB_WORKSPACE/scripts/diy-part2.sh
+            cd openwrt
+            $GITHUB_WORKSPACE/scripts/diy-part2.sh
+          else
+            echo "diy-part2.sh not found, skipping..."
+          fi
 
       - name: Apply Network Configuration
         run: |
