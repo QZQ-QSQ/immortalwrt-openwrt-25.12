@@ -40,16 +40,6 @@ sed -i 's/OpenWrt/ImmortalWrt/g' package/base-files/files/etc/config/system 2>/d
 echo "Setting timezone to Asia/Shanghai..."
 sed -i 's/UTC/CST-8/g' package/base-files/files/etc/config/system 2>/dev/null || sed -i 's/UTC/CST-8/g' package/base-files/files/etc/system.conf 2>/dev/null || true
 
-# 添加中国镜像源支持（使用不同的源名称避免冲突）
-echo "Adding China mirror repositories..."
-cat >> feeds.conf.default <<EOF
-
-# China mirrors for faster download
-src-git packages_cn https://mirrors.cloud.tencent.com/openwrt/packages.git;openwrt-25.12
-src-git routing_cn https://mirrors.cloud.tencent.com/openwrt/routing.git;openwrt-25.12
-src-git telephony_cn https://mirrors.cloud.tencent.com/openwrt/telephony.git;openwrt-25.12
-EOF
-
 # 添加自定义文件目录
 echo "Creating files directory..."
 mkdir -p files/etc/init.d
