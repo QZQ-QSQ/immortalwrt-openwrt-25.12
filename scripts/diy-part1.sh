@@ -18,8 +18,8 @@ cat >> feeds.conf.default <<EOF
 src-git small https://github.com/kenzok8/small.git;main
 
 # PassWall packages
-##src-git passwall_packages https://github.com/xiaorouji/openwrt-passwall-packages.git;main
-##src-git passwall_luci https://github.com/xiaorouji/openwrt-passwall.git;main
+src-git passwall_packages https://github.com/xiaorouji/openwrt-passwall-packages.git;main
+src-git passwall_luci https://github.com/xiaorouji/openwrt-passwall.git;main
 
 # OpenClash
 src-git openclash https://github.com/vernesong/OpenClash.git;master
@@ -41,14 +41,14 @@ echo "Setting timezone to Asia/Shanghai..."
 sed -i 's/UTC/CST-8/g' package/base-files/files/etc/config/system
 
 # 添加中国镜像源支持
-##echo "Adding China mirror repositories..."
-##cat >> feeds.conf.default <<EOF
+echo "Adding China mirror repositories..."
+cat >> feeds.conf.default <<EOF
 
 # China mirrors for faster download
-##src-git packages https://mirrors.cloud.tencent.com/openwrt/packages.git;openwrt-25.12
-##src-git routing https://mirrors.cloud.tencent.com/openwrt/routing.git;openwrt-25.12
-##src-git telephony https://mirrors.cloud.tencent.com/openwrt/telephony.git;openwrt-25.12
-##EOF
+src-git packages https://mirrors.cloud.tencent.com/openwrt/packages.git;openwrt-25.12
+src-git routing https://mirrors.cloud.tencent.com/openwrt/routing.git;openwrt-25.12
+src-git telephony https://mirrors.cloud.tencent.com/openwrt/telephony.git;openwrt-25.12
+EOF
 
 # 添加自定义文件目录
 echo "Creating files directory..."
