@@ -1,17 +1,15 @@
-
-
 #!/bin/bash
 #=================================================
-# DIY Script Part 2
+# DIY Script Part 2 - After feeds update
 #=================================================
 
 cd openwrt
 
 echo "=============================================="
-echo "DIY Part 2 - Installing packages from small"
+echo "DIY Part 2 - Installing packages"
 echo "=============================================="
 
-# Update and install packages from kenzok8/small
+# Update and install from kenzok8/small
 ./scripts/feeds update small 2>/dev/null || true
 ./scripts/feeds install -a -p small 2>/dev/null || true
 
@@ -23,6 +21,9 @@ echo "=============================================="
 ./scripts/feeds install luci-i18n-system-zh-cn 2>/dev/null || true
 ./scripts/feeds install luci-i18n-services-zh-cn 2>/dev/null || true
 ./scripts/feeds install luci-i18n-status-zh-cn 2>/dev/null || true
+./scripts/feeds install luci-i18n-nas-zh-cn 2>/dev/null || true
+./scripts/feeds install luci-i18n-docker-zh-cn 2>/dev/null || true
+./scripts/feeds install luci-i18n-vpn-zh-cn 2>/dev/null || true
 
 echo "=============================================="
 echo "DIY Part 2 Completed"
