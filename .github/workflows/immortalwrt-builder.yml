@@ -149,17 +149,14 @@ jobs:
 
       - name: Create Directories
         run: |
-          rm -rf openwrt
-          mkdir -p openwrt/files
-          mkdir -p openwrt/scripts
           df -hT $GITHUB_WORKSPACE
 
       - name: Clone Source Code
         id: clone
         run: |
+          git clone $REPO_URL -b $REPO_BRANCH openwrt
+          echo "OPENWRT_PATH=$GITHUB_WORKSPACE/openwrt" >> $GITHUB_ENV
           cd openwrt
-          git clone $REPO_URL -b $REPO_BRANCH .
-          echo "OPENWRT_PATH=$PWD" >> $GITHUB_ENV
           VERSION=$(grep "DISTRIB_REVISION" package/base-files/files/etc/openwrt_release | cut -d "'" '{'2'}' | head -1)
           echo "VERSION=${VERSION:-openwrt-25.12}" >> $GITHUB_ENV
           echo "status=success" >> $GITHUB_OUTPUT
