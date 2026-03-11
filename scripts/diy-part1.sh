@@ -34,11 +34,11 @@ sed -i 's/DISTRIB_REVISION=.*/DISTRIB_REVISION="ImmortalWrt-$(date +%Y%m%d)"/g' 
 
 # 修改默认主机名
 echo "Setting default hostname to ImmortalWrt..."
-sed -i 's/OpenWrt/ImmortalWrt/g' package/base-files/files/etc/config/system
+sed -i 's/OpenWrt/ImmortalWrt/g' package/base-files/files/etc/config/system 2>/dev/null || sed -i 's/OpenWrt/ImmortalWrt/g' package/base-files/files/etc/system.conf 2>/dev/null || true
 
 # 修改默认时区
 echo "Setting timezone to Asia/Shanghai..."
-sed -i 's/UTC/CST-8/g' package/base-files/files/etc/config/system
+sed -i 's/UTC/CST-8/g' package/base-files/files/etc/config/system 2>/dev/null || sed -i 's/UTC/CST-8/g' package/base-files/files/etc/system.conf 2>/dev/null || true
 
 # 添加中国镜像源支持
 echo "Adding China mirror repositories..."
