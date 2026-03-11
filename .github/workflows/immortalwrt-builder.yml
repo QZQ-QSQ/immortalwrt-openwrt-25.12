@@ -19,15 +19,6 @@ on:
         description: 'PPPoE Password'
         required: false
         default: ''
-      TARGET_PROFILE:
-        description: 'Target Profile'
-        required: false
-        default: 'x86-64'
-        type: choice
-        options:
-          - x86-64
-          - x86-generic
-          - armvirt-64
       WAN_IFACE:
         description: 'WAN Interface'
         required: false
@@ -74,23 +65,33 @@ jobs:
         sudo -E apt-get -qq autoremove --purge
         sudo -E apt-get -qq clean
         sudo timedatectl set-timezone "$TZ"
-        git config --global user.name "OpenWrt Builder"
-        git config --global user.email "builder@github.com"
 
     - name: Clone source code
       run: |
-        df -hT $GITHUB_WORKSPACE
         git clone $REPO_URL -b $REPO_BRANCH openwrt
         cd openwrt
         echo "OPENWRT_PATH=$PWD" >> $GITHUB_ENV
 
-    - name: Load custom configuration
+    - name: Load diy-part1.sh
       run: |
-        [ -e files ] && mv files openwrt/files
         cd openwrt
         if [ -f ../scripts/diy-part1.sh ]; then
           chmod +x ../scripts/diy-part1.sh
           bash ../scripts/diy-part1.sh
+        fi
+
+    - name: Update feeds
+      run: |
+        cd openwrt
+        ./scripts/feeds update -a
+        ./scripts/feeds install -a
+
+    - name: Load diy-part2.sh
+      run: |
+        cd openwrt
+        if [ -f ../scripts/diy-part2.sh ]; then
+          chmod +x ../scripts/diy-part2.sh
+          bash ../scripts/diy-part2.sh
         fi
 
     - name: Create network config
@@ -101,15 +102,12 @@ jobs:
         echo "    option device 'lo'" >> files/etc/config/network
         echo "    option proto 'static'" >> files/etc/config/network
         echo "    option ipaddr '127.0.0.1'" >> files/etc/config/network
-        echo "    option netmask '255.0.0.0'" >> files/etc/config/network
         echo "" >> files/etc/config/network
         echo "config interface 'lan'" >> files/etc/config/network
         echo "    option device '${{ github.event.inputs.LAN_IFACE || 'eth1' }}'" >> files/etc/config/network
         echo "    option proto 'static'" >> files/etc/config/network
         echo "    option ipaddr '192.168.1.1'" >> files/etc/config/network
         echo "    option netmask '255.255.255.0'" >> files/etc/config/network
-        echo "    option ip6assign '60'" >> files/etc/config/network
-        echo "    option dns '223.5.5.5 114.114.114.114'" >> files/etc/config/network
         echo "" >> files/etc/config/network
         echo "config interface 'wan'" >> files/etc/config/network
         echo "    option device '${{ github.event.inputs.WAN_IFACE || 'eth0' }}'" >> files/etc/config/network
@@ -121,56 +119,41 @@ jobs:
           echo "    option proto 'dhcp'" >> files/etc/config/network
         fi
 
-    - name: Update feeds
-      run: |
-        cd openwrt
-        ./scripts/feeds update -a
-        ./scripts/feeds install -a
-
-    - name: Install packages
-      run: |
-        cd openwrt
-        if [ -f ../scripts/diy-part2.sh ]; then
-          chmod +x ../scripts/diy-part2.sh
-          bash ../scripts/diy-part2.sh
-        fi
-
     - name: Generate .config
       run: |
         cd openwrt
-        echo 'CONFIG_TARGET_x86=y' > .config
-        echo 'CONFIG_TARGET_x86_64=y' >> .config
-        echo 'CONFIG_TARGET_x86_64_Generic=y' >> .config
-        echo 'CONFIG_TARGET_PROFILE="GENERIC"' >> .config
-        echo 'CONFIG_TARGET_ALL_PROFILES=y' >> .config
-        echo 'CONFIG_TARGET_PER_DEVICE_ROOTFS=y' >> .config
-        echo 'CONFIG_TARGET_ROOTFS_SQUASHFS=y' >> .config
-        echo 'CONFIG_TARGET_ROOTFS_EXT4FS=y' >> .config
-        echo 'CONFIG_PACKAGE_luci=y' >> .config
-        echo 'CONFIG_PACKAGE_luci-base=y' >> .config
-        echo 'CONFIG_PACKAGE_luci-compat=y' >> .config
-        echo 'CONFIG_PACKAGE_luci-i18n-base-zh-cn=y' >> .config
-        echo 'CONFIG_PACKAGE_luci-i18n-admin-zh-cn=y' >> .config
-        echo 'CONFIG_PACKAGE_kmod-usb-core=y' >> .config
-        echo 'CONFIG_PACKAGE_kmod-usb2=y' >> .config
-        echo 'CONFIG_PACKAGE_kmod-usb3=y' >> .config
-        echo 'CONFIG_PACKAGE_kmod-usb-storage=y' >> .config
-        echo 'CONFIG_PACKAGE_kmod-usb-storage-uas=n' >> .config
-        echo 'CONFIG_PACKAGE_automount=n' >> .config
-        echo 'CONFIG_PACKAGE_kmod-sata-ahci=y' >> .config
-        echo 'CONFIG_PACKAGE_kmod-ahci=y' >> .config
-        echo 'CONFIG_PACKAGE_kmod-libata=y' >> .config
-        echo 'CONFIG_PACKAGE_kmod-fs-ext4=y' >> .config
-        echo 'CONFIG_PACKAGE_kmod-fs-vfat=y' >> .config
-        echo 'CONFIG_PACKAGE_kmod-fs-ntfs=y' >> .config
-        echo 'CONFIG_PACKAGE_kmod-fuse=y' >> .config
+        cat > .config << 'CONFIGEOF'
+CONFIG_TARGET_x86=y
+CONFIG_TARGET_x86_64=y
+CONFIG_TARGET_x86_64_Generic=y
+CONFIG_TARGET_PROFILE="GENERIC"
+CONFIG_TARGET_ALL_PROFILES=y
+CONFIG_TARGET_PER_DEVICE_ROOTFS=y
+CONFIG_TARGET_ROOTFS_SQUASHFS=y
+CONFIG_TARGET_ROOTFS_EXT4FS=y
+CONFIG_PACKAGE_luci=y
+CONFIG_PACKAGE_luci-base=y
+CONFIG_PACKAGE_luci-compat=y
+CONFIG_PACKAGE_luci-i18n-base-zh-cn=y
+CONFIG_PACKAGE_kmod-usb-core=y
+CONFIG_PACKAGE_kmod-usb2=y
+CONFIG_PACKAGE_kmod-usb3=y
+CONFIG_PACKAGE_kmod-usb-storage=y
+CONFIG_PACKAGE_kmod-usb-storage-uas=n
+CONFIG_PACKAGE_automount=n
+CONFIG_PACKAGE_kmod-sata-ahci=y
+CONFIG_PACKAGE_kmod-ahci=y
+CONFIG_PACKAGE_kmod-libata=y
+CONFIG_PACKAGE_kmod-fs-ext4=y
+CONFIG_PACKAGE_kmod-fs-vfat=y
+CONFIG_PACKAGE_kmod-fuse=y
+CONFIGEOF
         make defconfig
 
     - name: Download package
       run: |
         cd openwrt
         make download -j$(nproc)
-        find dl -size -1024c -exec ls -l {} \;
         find dl -size -1024c -exec rm -f {} \;
 
     - name: Compile the firmware
@@ -181,9 +164,6 @@ jobs:
         make -j$(nproc) || make -j1 V=s
         echo "status=success" >> $GITHUB_OUTPUT
         echo "date=$(date '+%Y%m%d%H%M%S')" >> $GITHUB_OUTPUT
-
-    - name: Check space usage
-      run: df -hT
 
     - name: Organize files
       run: |
