@@ -1,7 +1,5 @@
 #=================================================
-# https://github.com/immortalwrt/immortalwrt
-# Description: Build ImmortalWrt with GitHub Actions
-# From: P3TERX/Actions-OpenWrt
+# ImmortalWrt Builder - Minimal Version
 #=================================================
 
 name: ImmortalWrt Builder
@@ -34,17 +32,6 @@ on:
           - x86-64
           - x86-generic
           - armvirt-64
-          - rockchip-armv8
-          - mediatek-filogic
-      CPU_ARCH:
-        description: 'CPU Architecture'
-        required: false
-        default: 'x86-64'
-        type: choice
-        options:
-          - x86-64
-          - x86-generic
-          - arm64
       WAN_IFACE:
         description: 'WAN Interface'
         required: false
@@ -72,11 +59,6 @@ on:
 env:
   REPO_URL: https://github.com/immortalwrt/immortalwrt.git
   REPO_BRANCH: openwrt-25.12
-  CONFIG_FILE: .config
-  DIY_P1_SH: scripts/diy-part1.sh
-  DIY_P2_SH: scripts/diy-part2.sh
-  UPLOAD_FIRMWARE: true
-  UPLOAD_RELEASE: true
   TZ: Asia/Shanghai
 
 jobs:
@@ -109,23 +91,13 @@ jobs:
     - name: Load custom configuration
       run: |
         [ -e files ] && mv files openwrt/files
-        [ -e $CONFIG_FILE ] && mv $CONFIG_FILE openwrt/.config
-        chmod +x $DIY_P1_SH $DIY_P2_SH
-        # Convert line endings
-        sed -i 's/\r$//' $DIY_P1_SH $DIY_P2_SH 2>/dev/null || true
         cd openwrt
-        $GITHUB_WORKSPACE/$DIY_P1_SH
 
     - name: Update feeds
       run: |
         cd openwrt
-        ./scripts/feeds update -a 2>&1 | tee -a $GITHUB_STEP_SUMMARY || true
-        ./scripts/feeds install -a 2>&1 | tee -a $GITHUB_STEP_SUMMARY || true
-
-    - name: Install custom packages
-      run: |
-        cd openwrt
-        $GITHUB_WORKSPACE/$DIY_P2_SH
+        ./scripts/feeds update -a
+        ./scripts/feeds install -a
 
     - name: Apply network configuration
       run: |
@@ -149,7 +121,6 @@ jobs:
             option ipaddr '192.168.1.1'
             option netmask '255.255.255.0'
             option ip6assign '60'
-            option dns '223.5.5.5 114.114.114.114'
         EOF
         
         if [ "$PPPoE_ENABLE" = "true" ] && [ -n "$PPPoE_USERNAME" ] && [ -n "$PPPoE_PASSWORD" ]; then
@@ -184,7 +155,6 @@ jobs:
         CONFIG_PACKAGE_luci=y
         CONFIG_PACKAGE_luci-base=y
         CONFIG_PACKAGE_luci-i18n-base-zh-cn=y
-        CONFIG_PACKAGE_luci-i18n-admin-zh-cn=y
         
         CONFIG_PACKAGE_kmod-usb-core=y
         CONFIG_PACKAGE_kmod-usb2=y
@@ -195,28 +165,6 @@ jobs:
         
         CONFIG_PACKAGE_kmod-sata-ahci=y
         CONFIG_PACKAGE_kmod-ahci=y
-        CONFIG_PACKAGE_kmod-libata=y
-        
-        CONFIG_PACKAGE_v2ray-geosite=y
-        CONFIG_PACKAGE_v2ray-geoip=y
-        CONFIG_PACKAGE_chinadns-ng=y
-        
-        CONFIG_PACKAGE_luci-app-ssr-plus=y
-        CONFIG_PACKAGE_luci-app-openclash=y
-        CONFIG_PACKAGE_luci-app-adguardhome=y
-        CONFIG_PACKAGE_luci-app-tailscale=y
-        CONFIG_PACKAGE_luci-app-dockerman=y
-        CONFIG_PACKAGE_luci-app-filebrowser=y
-        CONFIG_PACKAGE_luci-app-sqm=y
-        CONFIG_PACKAGE_ttyd=y
-        CONFIG_PACKAGE_luci-app-ttyd=y
-        CONFIG_PACKAGE_luci-app-diskman=y
-        CONFIG_PACKAGE_luci-app-lxc=y
-        CONFIG_PACKAGE_luci-app-ksmbd=y
-        CONFIG_PACKAGE_luci-app-qbittorrent=y
-        CONFIG_PACKAGE_luci-app-vlmcsd=y
-        CONFIG_PACKAGE_luci-app-filemanager=y
-        CONFIG_PACKAGE_luci-app-daed=y
         EOF
         make defconfig
 
@@ -235,7 +183,6 @@ jobs:
         make -j$(nproc) || make -j1 V=s
         echo "status=success" >> $GITHUB_OUTPUT
         echo "date=$(date '+%Y%m%d%H%M%S')" >> $GITHUB_OUTPUT
-        echo "FIRMWARE_PATH=$(cd bin/targets/*/* && pwd)" >> $GITHUB_OUTPUT
 
     - name: Check space usage
       run: df -hT
@@ -246,30 +193,9 @@ jobs:
         rm -rf packages
         echo "FIRMWARE_PATH=$PWD" >> $GITHUB_ENV
 
-    - name: Upload firmware to artifact
+    - name: Upload firmware
       uses: actions/upload-artifact@main
-      if: steps.compile.outputs.status == 'success' && env.UPLOAD_FIRMWARE == 'true'
+      if: steps.compile.outputs.status == 'success'
       with:
-        name: ImmortalWrt-${{ env.VERSION }}-${{ github.event.inputs.CPU_ARCH || 'x86-64' }}-${{ steps.compile.outputs.date }}
+        name: ImmortalWrt-${{ steps.compile.outputs.date }}
         path: ${{ env.FIRMWARE_PATH }}
-
-    - name: Create release
-      id: release
-      if: steps.compile.outputs.status == 'success' && env.UPLOAD_RELEASE == 'true'
-      uses: ncipollo/release-action@v1
-      with:
-        name: ImmortalWrt ${{ steps.compile.outputs.date }}
-        tag: ${{ steps.compile.outputs.date }}
-        token: ${{ secrets.GITHUB_TOKEN }}
-        allowUpdates: true
-        replacesArtifacts: true
-        artifacts: ${{ env.FIRMWARE_PATH }}/*.img.gz,${{ env.FIRMWARE_PATH }}/*.iso
-
-    - name: Delete old releases
-      uses: dev-drprasad/delete-older-releases@v0.3.2
-      if: env.UPLOAD_RELEASE == 'true' && !cancelled()
-      with:
-        keep_latest: 5
-        delete_tags: true
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
