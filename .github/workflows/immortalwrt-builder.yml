@@ -1,5 +1,5 @@
 #=================================================
-# ImmortalWrt Builder - Minimal Version
+# ImmortalWrt Builder
 #=================================================
 
 name: ImmortalWrt Builder
@@ -32,6 +32,26 @@ on:
           - x86-64
           - x86-generic
           - armvirt-64
+      WAN_IFACE:
+        description: 'WAN Interface'
+        required: false
+        default: 'eth0'
+        type: choice
+        options:
+          - eth0
+          - eth1
+          - eth2
+          - eth3
+      LAN_IFACE:
+        description: 'LAN Interface'
+        required: false
+        default: 'eth1'
+        type: choice
+        options:
+          - eth0
+          - eth1
+          - eth2
+          - eth3
 
   schedule:
     - cron: 0 19 * * *
@@ -71,7 +91,14 @@ jobs:
     - name: Load custom configuration
       run: |
         [ -e files ] && mv files openwrt/files
+        mkdir -p openwrt/files/etc/config
         cd openwrt
+        WAN_IFACE="${{ github.event.inputs.WAN_IFACE || 'eth0' }}"
+        LAN_IFACE="${{ github.event.inputs.LAN_IFACE || 'eth1' }}"
+        PPPoE_ENABLE="${{ github.event.inputs.PPoE_ENABLE || 'false' }}"
+        PPPoE_USERNAME="${{ github.event.inputs.PPPoE_USERNAME }}"
+        PPPoE_PASSWORD="${{ github.event.inputs.PPPoE_PASSWORD }}"
+        echo "Network: WAN=$WAN_IFACE LAN=$LAN_IFACE PPPoE=$PPPoE_ENABLE"
 
     - name: Update feeds
       run: |
@@ -82,30 +109,27 @@ jobs:
     - name: Generate .config
       run: |
         cd openwrt
-        cat > .config <<EOF
-        CONFIG_TARGET_x86=y
-        CONFIG_TARGET_x86_64=y
-        CONFIG_TARGET_x86_64_Generic=y
-        CONFIG_TARGET_PROFILE="GENERIC"
-        CONFIG_TARGET_ALL_PROFILES=y
-        CONFIG_TARGET_PER_DEVICE_ROOTFS=y
-        CONFIG_TARGET_ROOTFS_SQUASHFS=y
-        CONFIG_TARGET_ROOTFS_EXT4FS=y
-        
-        CONFIG_PACKAGE_luci=y
-        CONFIG_PACKAGE_luci-base=y
-        CONFIG_PACKAGE_luci-i18n-base-zh-cn=y
-        
-        CONFIG_PACKAGE_kmod-usb-core=y
-        CONFIG_PACKAGE_kmod-usb2=y
-        CONFIG_PACKAGE_kmod-usb3=y
-        CONFIG_PACKAGE_kmod-usb-storage=y
-        CONFIG_PACKAGE_kmod-usb-storage-uas=n
-        CONFIG_PACKAGE_automount=n
-        
-        CONFIG_PACKAGE_kmod-sata-ahci=y
-        CONFIG_PACKAGE_kmod-ahci=y
-        EOF
+        cat > .config <<CONFIGEOF
+CONFIG_TARGET_x86=y
+CONFIG_TARGET_x86_64=y
+CONFIG_TARGET_x86_64_Generic=y
+CONFIG_TARGET_PROFILE="GENERIC"
+CONFIG_TARGET_ALL_PROFILES=y
+CONFIG_TARGET_PER_DEVICE_ROOTFS=y
+CONFIG_TARGET_ROOTFS_SQUASHFS=y
+CONFIG_TARGET_ROOTFS_EXT4FS=y
+CONFIG_PACKAGE_luci=y
+CONFIG_PACKAGE_luci-base=y
+CONFIG_PACKAGE_luci-i18n-base-zh-cn=y
+CONFIG_PACKAGE_kmod-usb-core=y
+CONFIG_PACKAGE_kmod-usb2=y
+CONFIG_PACKAGE_kmod-usb3=y
+CONFIG_PACKAGE_kmod-usb-storage=y
+CONFIG_PACKAGE_kmod-usb-storage-uas=n
+CONFIG_PACKAGE_automount=n
+CONFIG_PACKAGE_kmod-sata-ahci=y
+CONFIG_PACKAGE_kmod-ahci=y
+CONFIGEOF
         make defconfig
 
     - name: Download package
