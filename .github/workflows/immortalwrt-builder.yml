@@ -1,9 +1,77 @@
-name: Build ImmortalWrt
-
+name: ImmortalWrt Builder
 on:
   workflow_dispatch:
-  schedule:
-    - cron: 0 20 * * *
+    inputs:
+      pppoe_enable:
+        description: 'Enable PPPoE'
+        type: boolean
+        default: false
+      pppoe_username:
+        description: 'PPPoE Username'
+        required: false
+        default: ''
+      pppoe_password:
+        description: 'PPPoE Password'
+        required: false
+        default: ''
+      overlay_size:
+        description: 'Overlay Size (MB)'
+        required: false
+        default: '256'
+      target:
+        description: 'Target Profile'
+        type: choice
+        options:
+          - x86-64
+          - x86-generic
+          - arm64-generic
+          - armvirt-64
+        default: 'x86-64'
+      cpu_arch:
+        description: 'CPU Architecture'
+        type: choice
+        options:
+          - x86_64
+          - i386
+          - aarch64
+          - arm
+        default: 'x86_64'
+      cpu_model:
+        description: 'CPU Model'
+        type: choice
+        options:
+          - generic
+          - intel
+          - amd
+          - rockchip
+          - mediatek
+        default: 'generic'
+      wan_iface:
+        description: 'WAN Interface'
+        type: choice
+        options:
+          - eth0
+          - eth1
+          - eth2
+          - eth3
+        default: 'eth0'
+      lan_iface:
+        description: 'LAN Interface'
+        type: choice
+        options:
+          - eth0
+          - eth1
+          - eth2
+          - eth3
+        default: 'eth1'
+      build_schedule:
+        description: 'Build Schedule'
+        type: choice
+        options:
+          - manual
+          - daily
+          - weekly
+        default: 'manual'
 
 env:
   REPO_URL: https://github.com/immortalwrt/immortalwrt.git
@@ -13,78 +81,152 @@ env:
 jobs:
   build:
     runs-on: ubuntu-22.04
-
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout
+      uses: actions/checkout@v4
 
-    - name: Init Environment
+    - name: Setup Environment
       run: |
-        sudo -E apt-get -qq update
-        sudo -E apt-get -qq install -y $(curl -fsSL https://git.io/depends-ubuntu-2204)
-        sudo -E apt-get -qq autoremove --purge
-        sudo -E apt-get -qq clean
+        sudo -E apt-get update
+        sudo -E apt-get install -y build-essential clang flex bison g++ gawk \
+          gcc-multilib g++-multilib gettext git libncurses5-dev libssl-dev \
+          libelf-dev python3-distutils python3-setuptools rsync unzip \
+          zlib1g-dev file wget ccache llvm libfuse-dev
+        sudo -E apt-get clean
         sudo timedatectl set-timezone "$TZ"
 
     - name: Clone Source
-      run: git clone $REPO_URL -b $REPO_BRANCH openwrt
-
-    - name: Update Feeds
       run: |
+        git clone --depth 1 $REPO_URL -b $REPO_BRANCH openwrt
         cd openwrt
-        echo "src-git small https://github.com/kenzok8/small.git;main" >> feeds.conf.default
+        echo "src-git small https://github.com/kenzok8/small.git" >> feeds.conf.default
         ./scripts/feeds update -a
         ./scripts/feeds install -a
-
-    - name: Install Packages
-      run: |
-        cd openwrt
         ./scripts/feeds update small
         ./scripts/feeds install -a -p small
 
-    - name: Generate Config
+    - name: Create Config
       run: |
         cd openwrt
-        cat > .config << 'EOF'
-CONFIG_TARGET_x86=y
-CONFIG_TARGET_x86_64=y
-CONFIG_TARGET_x86_64_Generic=y
-CONFIG_TARGET_PROFILE="GENERIC"
-CONFIG_TARGET_ALL_PROFILES=y
-CONFIG_TARGET_ROOTFS_SQUASHFS=y
-CONFIG_TARGET_ROOTFS_EXT4FS=y
+        mkdir -p files/etc/config
+        
+        # Network config
+        cat > files/etc/config/network << 'NETCONFIG'
+config interface 'loopback'
+	option device 'lo'
+	option proto 'static'
+	option ipaddr '127.0.0.1'
+	option netmask '255.0.0.0'
+
+config interface 'lan'
+	option device '${{ inputs.lan_iface }}'
+	option proto 'static'
+	option ipaddr '192.168.1.1'
+	option netmask '255.255.255.0'
+	option ip6assign '60'
+NETCONFIG
+        
+        if [ "${{ inputs.pppoe_enable }}" = "true" ] && [ -n "${{ inputs.pppoe_username }}" ]; then
+          echo "config interface 'wan'" >> files/etc/config/network
+          echo "	option device '${{ inputs.wan_iface }}'" >> files/etc/config/network
+          echo "	option proto 'pppoe'" >> files/etc/config/network
+          echo "	option username '${{ inputs.pppoe_username }}'" >> files/etc/config/network
+          echo "	option password '${{ inputs.pppoe_password }}'" >> files/etc/config/network
+        else
+          echo "config interface 'wan'" >> files/etc/config/network
+          echo "	option device '${{ inputs.wan_iface }}'" >> files/etc/config/network
+          echo "	option proto 'dhcp'" >> files/etc/config/network
+        fi
+        
+        # System config
+        cat > files/etc/config/system << 'SYSCONFIG'
+config system
+	option hostname 'ImmortalWrt'
+	option timezone 'CST-8'
+	option zonename 'Asia/Shanghai'
+SYSCONFIG
+
+    - name: Generate .config
+      run: |
+        cd openwrt
+        cat > .config << 'CONFIG'
+CONFIG_TARGET_${{ inputs.cpu_arch }}=y
+CONFIG_TARGET_${{ inputs.cpu_model }}=y
+CONFIG_TARGET_PROFILE="${{ inputs.target }}"
+
+# LuCI
 CONFIG_PACKAGE_luci=y
 CONFIG_PACKAGE_luci-base=y
 CONFIG_PACKAGE_luci-i18n-base-zh-cn=y
+CONFIG_PACKAGE_luci-i18n-firewall-zh-cn=y
+CONFIG_PACKAGE_luci-i18n-network-zh-cn=y
+CONFIG_PACKAGE_luci-i18n-system-zh-cn=y
+
+# USB Support
 CONFIG_PACKAGE_kmod-usb-core=y
 CONFIG_PACKAGE_kmod-usb2=y
 CONFIG_PACKAGE_kmod-usb3=y
 CONFIG_PACKAGE_kmod-usb-storage=y
-CONFIG_PACKAGE_kmod-usb-storage-uas=n
+CONFIG_PACKAGE_kmod-usb-ohci=y
+CONFIG_PACKAGE_kmod-usb-ehci=y
+CONFIG_PACKAGE_kmod-usb-xhci=y
+
+# Disable problematic USB
 CONFIG_PACKAGE_automount=n
+CONFIG_PACKAGE_kmod-usb-storage-uas=n
+
+# SATA Support
 CONFIG_PACKAGE_kmod-sata-ahci=y
 CONFIG_PACKAGE_kmod-ahci=y
 CONFIG_PACKAGE_kmod-libata=y
+CONFIG_PACKAGE_kmod-scsi-core=y
+
+# Filesystems
 CONFIG_PACKAGE_kmod-fs-ext4=y
 CONFIG_PACKAGE_kmod-fs-vfat=y
+CONFIG_PACKAGE_kmod-fs-ntfs=y
+CONFIG_PACKAGE_kmod-fs-exfat=y
 CONFIG_PACKAGE_kmod-fuse=y
-EOF
+
+# Small packages
+CONFIG_PACKAGE_luci-app-adguardhome=y
+CONFIG_PACKAGE_luci-app-openclash=y
+CONFIG_PACKAGE_luci-app-ssr-plus=y
+CONFIG_PACKAGE_luci-app-passwall=y
+
+CONFIG_PACKAGE_v2ray-core=y
+CONFIG_PACKAGE_xray-core=y
+CONFIG_PACKAGE_trojan=y
+CONFIG_PACKAGE_naiveproxy=y
+
+CONFIG_PACKAGE_smartdns=y
+CONFIG_PACKAGE_chinadns-ng=y
+
+CONFIG_PACKAGE_luci-app-diskman=y
+CONFIG_PACKAGE_luci-app-filebrowser=y
+CONFIG_PACKAGE_luci-app-dockerman=y
+CONFIG_PACKAGE_luci-app-sqm=y
+
+CONFIG
         make defconfig
 
     - name: Download
       run: |
         cd openwrt
         make download -j$(nproc)
+        find dl -size -1024c -exec rm -f {} \;
 
     - name: Compile
       id: compile
       run: |
         cd openwrt
         make -j$(nproc) || make -j1 V=s
-        echo "date=$(date '+%Y%m%d%H%M%S')" >> $GITHUB_OUTPUT
+        echo "status=success" >> $GITHUB_OUTPUT
+        echo "date=$(date +%Y%m%d)" >> $GITHUB_OUTPUT
 
     - name: Upload
       uses: actions/upload-artifact@v4
       if: steps.compile.outputs.status == 'success'
       with:
         name: ImmortalWrt-${{ steps.compile.outputs.date }}
-        path: openwrt/bin/targets/*/*/*.img.gz
+        path: openwrt/bin/targets/*/*/*
