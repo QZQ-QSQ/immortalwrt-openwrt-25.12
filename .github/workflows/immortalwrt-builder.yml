@@ -91,25 +91,61 @@ jobs:
     - name: Load custom configuration
       run: |
         [ -e files ] && mv files openwrt/files
-        mkdir -p openwrt/files/etc/config
         cd openwrt
-        WAN_IFACE="${{ github.event.inputs.WAN_IFACE || 'eth0' }}"
-        LAN_IFACE="${{ github.event.inputs.LAN_IFACE || 'eth1' }}"
-        PPPoE_ENABLE="${{ github.event.inputs.PPoE_ENABLE || 'false' }}"
-        PPPoE_USERNAME="${{ github.event.inputs.PPPoE_USERNAME }}"
-        PPPoE_PASSWORD="${{ github.event.inputs.PPPoE_PASSWORD }}"
-        echo "Network: WAN=$WAN_IFACE LAN=$LAN_IFACE PPPoE=$PPPoE_ENABLE"
+        chmod +x $GITHUB_WORKSPACE/scripts/diy-part1.sh 2>/dev/null || true
+        $GITHUB_WORKSPACE/scripts/diy-part1.sh 2>/dev/null || true
+
+    - name: Create network config
+      run: |
+        cd openwrt
+        mkdir -p files/etc/config
+        cat > files/etc/config/network << NETCONF
+config interface 'loopback'
+    option device 'lo'
+    option proto 'static'
+    option ipaddr '127.0.0.1'
+    option netmask '255.0.0.0'
+
+config interface 'lan'
+    option device '${{ github.event.inputs.LAN_IFACE || 'eth1' }}'
+    option proto 'static'
+    option ipaddr '192.168.1.1'
+    option netmask '255.255.255.0'
+    option ip6assign '60'
+    option dns '223.5.5.5 114.114.114.114'
+NETCONF
+        if [ "${{ github.event.inputs.PPoE_ENABLE }}" = "true" ] && [ -n "${{ github.event.inputs.PPPoE_USERNAME }}" ]; then
+          cat >> files/etc/config/network << WANCONF
+config interface 'wan'
+    option device '${{ github.event.inputs.WAN_IFACE || 'eth0' }}'
+    option proto 'pppoe'
+    option username '${{ github.event.inputs.PPPoE_USERNAME }}'
+    option password '${{ github.event.inputs.PPPoE_PASSWORD }}'
+WANCONF
+        else
+          cat >> files/etc/config/network << WANCONF
+config interface 'wan'
+    option device '${{ github.event.inputs.WAN_IFACE || 'eth0' }}'
+    option proto 'dhcp'
+WANCONF
+        fi
 
     - name: Update feeds
       run: |
         cd openwrt
-        ./scripts/feeds update -a
-        ./scripts/feeds install -a
+        ./scripts/feeds update -a 2>&1 || true
+        ./scripts/feeds install -a 2>&1 || true
+
+    - name: Install packages
+      run: |
+        cd openwrt
+        chmod +x $GITHUB_WORKSPACE/scripts/diy-part2.sh 2>/dev/null || true
+        $GITHUB_WORKSPACE/scripts/diy-part2.sh 2>&1 || true
 
     - name: Generate .config
       run: |
         cd openwrt
-        cat > .config <<CONFIGEOF
+        cat > .config << CONFIGEND
 CONFIG_TARGET_x86=y
 CONFIG_TARGET_x86_64=y
 CONFIG_TARGET_x86_64_Generic=y
@@ -120,7 +156,9 @@ CONFIG_TARGET_ROOTFS_SQUASHFS=y
 CONFIG_TARGET_ROOTFS_EXT4FS=y
 CONFIG_PACKAGE_luci=y
 CONFIG_PACKAGE_luci-base=y
+CONFIG_PACKAGE_luci-compat=y
 CONFIG_PACKAGE_luci-i18n-base-zh-cn=y
+CONFIG_PACKAGE_luci-i18n-admin-zh-cn=y
 CONFIG_PACKAGE_kmod-usb-core=y
 CONFIG_PACKAGE_kmod-usb2=y
 CONFIG_PACKAGE_kmod-usb3=y
@@ -129,7 +167,12 @@ CONFIG_PACKAGE_kmod-usb-storage-uas=n
 CONFIG_PACKAGE_automount=n
 CONFIG_PACKAGE_kmod-sata-ahci=y
 CONFIG_PACKAGE_kmod-ahci=y
-CONFIGEOF
+CONFIG_PACKAGE_kmod-libata=y
+CONFIG_PACKAGE_kmod-fs-ext4=y
+CONFIG_PACKAGE_kmod-fs-vfat=y
+CONFIG_PACKAGE_kmod-fs-ntfs=y
+CONFIG_PACKAGE_kmod-fuse=y
+CONFIGEND
         make defconfig
 
     - name: Download package
