@@ -119,8 +119,8 @@ jobs:
     - name: Update feeds
       run: |
         cd openwrt
-        ./scripts/feeds update -a
-        ./scripts/feeds install -a
+        ./scripts/feeds update -a 2>&1 | tee -a $GITHUB_STEP_SUMMARY || true
+        ./scripts/feeds install -a 2>&1 | tee -a $GITHUB_STEP_SUMMARY || true
 
     - name: Install custom packages
       run: |
