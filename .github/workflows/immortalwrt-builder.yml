@@ -169,6 +169,7 @@ jobs:
       - name: Load diy-part1.sh
         run: |
           if [ -e $GITHUB_WORKSPACE/scripts/diy-part1.sh ]; then
+            sed -i 's/\r$//' $GITHUB_WORKSPACE/scripts/diy-part1.sh
             chmod +x $GITHUB_WORKSPACE/scripts/diy-part1.sh
             cd openwrt
             $GITHUB_WORKSPACE/scripts/diy-part1.sh
@@ -187,6 +188,7 @@ jobs:
       - name: Load diy-part2.sh
         run: |
           if [ -e $GITHUB_WORKSPACE/scripts/diy-part2.sh ]; then
+            sed -i 's/\r$//' $GITHUB_WORKSPACE/scripts/diy-part2.sh
             chmod +x $GITHUB_WORKSPACE/scripts/diy-part2.sh
             cd openwrt
             $GITHUB_WORKSPACE/scripts/diy-part2.sh
