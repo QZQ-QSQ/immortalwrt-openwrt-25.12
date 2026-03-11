@@ -32,26 +32,6 @@ on:
           - x86-64
           - x86-generic
           - armvirt-64
-      WAN_IFACE:
-        description: 'WAN Interface'
-        required: false
-        default: 'eth0'
-        type: choice
-        options:
-          - eth0
-          - eth1
-          - eth2
-          - eth3
-      LAN_IFACE:
-        description: 'LAN Interface'
-        required: false
-        default: 'eth1'
-        type: choice
-        options:
-          - eth0
-          - eth1
-          - eth2
-          - eth3
 
   schedule:
     - cron: 0 19 * * *
@@ -98,46 +78,6 @@ jobs:
         cd openwrt
         ./scripts/feeds update -a
         ./scripts/feeds install -a
-
-    - name: Apply network configuration
-      run: |
-        cd openwrt
-        WAN_IFACE="${{ github.event.inputs.WAN_IFACE || 'eth0' }}"
-        LAN_IFACE="${{ github.event.inputs.LAN_IFACE || 'eth1' }}"
-        PPPoE_ENABLE="${{ github.event.inputs.PPoE_ENABLE || 'false' }}"
-        PPPoE_USERNAME="${{ github.event.inputs.PPPoE_USERNAME }}"
-        PPPoE_PASSWORD="${{ github.event.inputs.PPPoE_PASSWORD }}"
-        
-        cat > package/base-files/files/etc/config/network <<EOF
-        config interface 'loopback'
-            option device 'lo'
-            option proto 'static'
-            option ipaddr '127.0.0.1'
-            option netmask '255.0.0.0'
-
-        config interface 'lan'
-            option device '${LAN_IFACE}'
-            option proto 'static'
-            option ipaddr '192.168.1.1'
-            option netmask '255.255.255.0'
-            option ip6assign '60'
-        EOF
-        
-        if [ "$PPPoE_ENABLE" = "true" ] && [ -n "$PPPoE_USERNAME" ] && [ -n "$PPPoE_PASSWORD" ]; then
-          cat >> package/base-files/files/etc/config/network <<EOF
-        config interface 'wan'
-            option device '${WAN_IFACE}'
-            option proto 'pppoe'
-            option username '${PPPoE_USERNAME}'
-            option password '${PPPoE_PASSWORD}'
-        EOF
-        else
-          cat >> package/base-files/files/etc/config/network <<EOF
-        config interface 'wan'
-            option device '${WAN_IFACE}'
-            option proto 'dhcp'
-        EOF
-        fi
 
     - name: Generate .config
       run: |
