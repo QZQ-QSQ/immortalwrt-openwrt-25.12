@@ -1,10 +1,16 @@
+#=================================================
+# https://github.com/immortalwrt/immortalwrt
+# Description: Build ImmortalWrt with GitHub Actions
+# From: P3TERX/Actions-OpenWrt
+#=================================================
+
 name: ImmortalWrt Builder
 
 on:
   workflow_dispatch:
     inputs:
       PPPoE_ENABLE:
-        description: '是否启用 PPPoE'
+        description: 'Enable PPPoE'
         required: false
         default: 'false'
         type: choice
@@ -12,19 +18,15 @@ on:
           - 'false'
           - 'true'
       PPPoE_USERNAME:
-        description: 'PPPoE 账号'
+        description: 'PPPoE Username'
         required: false
         default: ''
       PPPoE_PASSWORD:
-        description: 'PPPoE 密码'
+        description: 'PPPoE Password'
         required: false
         default: ''
-      OVERLAY_SIZE:
-        description: '/overlay 空间大小 (MB)'
-        required: false
-        default: '256'
       TARGET_PROFILE:
-        description: '生成镜像类型'
+        description: 'Target Profile'
         required: false
         default: 'x86-64'
         type: choice
@@ -34,10 +36,8 @@ on:
           - armvirt-64
           - rockchip-armv8
           - mediatek-filogic
-          - ipq807x-generic
-          - ipq60xx-generic
       CPU_ARCH:
-        description: 'CPU 架构类型'
+        description: 'CPU Architecture'
         required: false
         default: 'x86-64'
         type: choice
@@ -45,22 +45,8 @@ on:
           - x86-64
           - x86-generic
           - arm64
-          - arm
-          - mips
-          - mipsel
-      CPU_MODEL:
-        description: '主流 CPU 型号'
-        required: false
-        default: 'intel'
-        type: choice
-        options:
-          - intel
-          - amd
-          - rockchip
-          - mediatek
-          - qualcomm
       WAN_IFACE:
-        description: 'WAN 口网络接口'
+        description: 'WAN Interface'
         required: false
         default: 'eth0'
         type: choice
@@ -70,7 +56,7 @@ on:
           - eth2
           - eth3
       LAN_IFACE:
-        description: 'LAN 口网络接口'
+        description: 'LAN Interface'
         required: false
         default: 'eth1'
         type: choice
@@ -79,437 +65,209 @@ on:
           - eth1
           - eth2
           - eth3
-      BUILD_SCHEDULE:
-        description: '自动编译周期'
-        required: false
-        default: 'disabled'
-        type: choice
-        options:
-          - disabled
-          - daily
-          - weekly
-          - monthly
-      BUILD_TIME:
-        description: '自动编译时间 (HH:MM, UTC+8)'
-        required: false
-        default: '03:00'
 
   schedule:
-    - cron: '0 19 * * *'
+    - cron: 0 19 * * *
 
 env:
-  REPO_URL: 'https://github.com/immortalwrt/immortalwrt.git'
-  REPO_BRANCH: 'openwrt-25.12'
-  FEEDS_CONF: 'feeds.conf.default'
-  CONFIG_FILE: '.config'
-  DIY_P1_SH: 'scripts/diy-part1.sh'
-  DIY_P2_SH: 'scripts/diy-part2.sh'
+  REPO_URL: https://github.com/immortalwrt/immortalwrt.git
+  REPO_BRANCH: openwrt-25.12
+  CONFIG_FILE: .config
+  DIY_P1_SH: scripts/diy-part1.sh
+  DIY_P2_SH: scripts/diy-part2.sh
   UPLOAD_FIRMWARE: true
   UPLOAD_RELEASE: true
-  TZ: 'Asia/Shanghai'
+  TZ: Asia/Shanghai
 
 jobs:
   build:
     runs-on: ubuntu-22.04
-    outputs:
-      release_url: ${{ steps.release.outputs.release_url }}
-      firmware_path: ${{ steps.compile.outputs.FIRMWARE_PATH }}
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+    - name: Checkout
+      uses: actions/checkout@main
 
-      - name: Initialization Environment
-        id: init
-        env:
-          DEBIAN_FRONTEND: noninteractive
-        run: |
-          sudo -E apt-get -qq update
-          sudo -E apt-get -qq install -y \
-            build-essential clang flex bison g++ gawk \
-            gcc-multilib g++-multilib gettext git libncurses5-dev \
-            libssl-dev python3-distutils python3-setuptools python3-dev \
-            rsync unzip zlib1g-dev file wget \
-            ccache llvm libelf-dev libstdc++-12-dev \
-            binutils-dev libgmp-dev libmpfr-dev libmpc-dev \
-            autoconf automake libtool texinfo \
-            libfuse-dev libcap-dev liblz4-dev \
-            pkg-config libprotobuf-dev protobuf-compiler \
-            libudev-dev libsystemd-dev
-          sudo -E apt-get -qq autoremove --purge
-          sudo -E apt-get -qq clean
-          sudo timedatectl set-timezone "$TZ"
-          git config --global user.name "OpenWrt Builder"
-          git config --global user.email "builder@github.com"
-          echo "status=success" >> $GITHUB_OUTPUT
-          echo "date=$(date '+%Y%m%d%H%M%S')" >> $GITHUB_OUTPUT
-          echo "date_short=$(date '+%Y%m%d')" >> $GITHUB_OUTPUT
+    - name: Initialization environment
+      env:
+        DEBIAN_FRONTEND: noninteractive
+      run: |
+        sudo -E apt-get -qq update
+        sudo -E apt-get -qq install -y $(curl -fsSL https://git.io/depends-ubuntu-2204)
+        sudo -E apt-get -qq autoremove --purge
+        sudo -E apt-get -qq clean
+        sudo timedatectl set-timezone "$TZ"
+        git config --global user.name "OpenWrt Builder"
+        git config --global user.email "builder@github.com"
 
-      - name: Create Directories
-        run: |
-          df -hT $GITHUB_WORKSPACE
+    - name: Clone source code
+      run: |
+        df -hT $GITHUB_WORKSPACE
+        git clone $REPO_URL -b $REPO_BRANCH openwrt
+        cd openwrt
+        echo "OPENWRT_PATH=$PWD" >> $GITHUB_ENV
 
-      - name: Clone Source Code
-        id: clone
-        run: |
-          git clone $REPO_URL -b $REPO_BRANCH openwrt
-          echo "OPENWRT_PATH=$GITHUB_WORKSPACE/openwrt" >> $GITHUB_ENV
-          cd openwrt
-          VERSION=$(cat package/base-files/files/etc/openwrt_release | grep DISTRIB_REVISION | cut -d "'" -f2)
-          echo "VERSION=${VERSION:-openwrt-25.12}" >> $GITHUB_ENV
-          echo "status=success" >> $GITHUB_OUTPUT
+    - name: Load custom configuration
+      run: |
+        [ -e files ] && mv files openwrt/files
+        [ -e $CONFIG_FILE ] && mv $CONFIG_FILE openwrt/.config
+        chmod +x $DIY_P1_SH $DIY_P2_SH
+        cd openwrt
+        $GITHUB_WORKSPACE/$DIY_P1_SH
 
-      - name: Load Custom Configuration (files method)
-        run: |
-          [ -e $GITHUB_WORKSPACE/files ] && mv $GITHUB_WORKSPACE/files openwrt/files
-          echo "Files directory loaded"
+    - name: Update feeds
+      run: |
+        cd openwrt
+        ./scripts/feeds update -a
+        ./scripts/feeds install -a
 
-      - name: Load diy-part1.sh
-        run: |
-          if [ -e $GITHUB_WORKSPACE/scripts/diy-part1.sh ]; then
-            sed -i 's/\r$//' $GITHUB_WORKSPACE/scripts/diy-part1.sh
-            chmod +x $GITHUB_WORKSPACE/scripts/diy-part1.sh
-            cd openwrt
-            $GITHUB_WORKSPACE/scripts/diy-part1.sh
-          else
-            echo "diy-part1.sh not found, skipping..."
-          fi
+    - name: Install custom packages
+      run: |
+        cd openwrt
+        $GITHUB_WORKSPACE/$DIY_P2_SH
 
-      - name: Update Feeds
-        id: update
-        run: |
-          cd openwrt
-          ./scripts/feeds update -a 2>&1 || true
-          ./scripts/feeds install -a 2>&1 || true
-          echo "status=success" >> $GITHUB_OUTPUT
+    - name: Apply network configuration
+      run: |
+        cd openwrt
+        WAN_IFACE="${{ github.event.inputs.WAN_IFACE || 'eth0' }}"
+        LAN_IFACE="${{ github.event.inputs.LAN_IFACE || 'eth1' }}"
+        PPPoE_ENABLE="${{ github.event.inputs.PPoE_ENABLE || 'false' }}"
+        PPPoE_USERNAME="${{ github.event.inputs.PPPoE_USERNAME }}"
+        PPPoE_PASSWORD="${{ github.event.inputs.PPPoE_PASSWORD }}"
+        
+        cat > package/base-files/files/etc/config/network <<EOF
+        config interface 'loopback'
+            option device 'lo'
+            option proto 'static'
+            option ipaddr '127.0.0.1'
+            option netmask '255.0.0.0'
 
-      - name: Load diy-part2.sh
-        run: |
-          if [ -e $GITHUB_WORKSPACE/scripts/diy-part2.sh ]; then
-            sed -i 's/\r$//' $GITHUB_WORKSPACE/scripts/diy-part2.sh
-            chmod +x $GITHUB_WORKSPACE/scripts/diy-part2.sh
-            cd openwrt
-            $GITHUB_WORKSPACE/scripts/diy-part2.sh
-          else
-            echo "diy-part2.sh not found, skipping..."
-          fi
+        config interface 'lan'
+            option device '${LAN_IFACE}'
+            option proto 'static'
+            option ipaddr '192.168.1.1'
+            option netmask '255.255.255.0'
+            option ip6assign '60'
+            option dns '223.5.5.5 114.114.114.114'
+        EOF
+        
+        if [ "$PPPoE_ENABLE" = "true" ] && [ -n "$PPPoE_USERNAME" ] && [ -n "$PPPoE_PASSWORD" ]; then
+          cat >> package/base-files/files/etc/config/network <<EOF
+        config interface 'wan'
+            option device '${WAN_IFACE}'
+            option proto 'pppoe'
+            option username '${PPPoE_USERNAME}'
+            option password '${PPPoE_PASSWORD}'
+        EOF
+        else
+          cat >> package/base-files/files/etc/config/network <<EOF
+        config interface 'wan'
+            option device '${WAN_IFACE}'
+            option proto 'dhcp'
+        EOF
+        fi
 
-      - name: Apply Network Configuration
-        run: |
-          cd openwrt
-          WAN_IFACE="${{ github.event.inputs.WAN_IFACE || 'eth0' }}"
-          LAN_IFACE="${{ github.event.inputs.LAN_IFACE || 'eth1' }}"
-          PPPoE_ENABLE="${{ github.event.inputs.PPoE_ENABLE || 'false' }}"
-          PPPoE_USERNAME="${{ github.event.inputs.PPPoE_USERNAME }}"
-          PPPoE_PASSWORD="${{ github.event.inputs.PPPoE_PASSWORD }}"
-          
-          mkdir -p package/base-files/files/etc/config
-          
-          if [ "$PPPoE_ENABLE" = "true" ] && [ -n "$PPPoE_USERNAME" ] && [ -n "$PPPoE_PASSWORD" ]; then
-            cat > package/base-files/files/etc/config/network <<EOF
-          config interface 'loopback'
-              option device 'lo'
-              option proto 'static'
-              option ipaddr '127.0.0.1'
-              option netmask '255.0.0.0'
+    - name: Generate .config
+      run: |
+        cd openwrt
+        cat > .config <<EOF
+        CONFIG_TARGET_x86=y
+        CONFIG_TARGET_x86_64=y
+        CONFIG_TARGET_x86_64_Generic=y
+        CONFIG_TARGET_PROFILE="GENERIC"
+        CONFIG_TARGET_ALL_PROFILES=y
+        CONFIG_TARGET_PER_DEVICE_ROOTFS=y
+        CONFIG_TARGET_ROOTFS_SQUASHFS=y
+        CONFIG_TARGET_ROOTFS_EXT4FS=y
+        
+        CONFIG_PACKAGE_luci=y
+        CONFIG_PACKAGE_luci-base=y
+        CONFIG_PACKAGE_luci-i18n-base-zh-cn=y
+        CONFIG_PACKAGE_luci-i18n-admin-zh-cn=y
+        
+        CONFIG_PACKAGE_kmod-usb-core=y
+        CONFIG_PACKAGE_kmod-usb2=y
+        CONFIG_PACKAGE_kmod-usb3=y
+        CONFIG_PACKAGE_kmod-usb-storage=y
+        CONFIG_PACKAGE_kmod-usb-storage-uas=n
+        CONFIG_PACKAGE_automount=n
+        
+        CONFIG_PACKAGE_kmod-sata-ahci=y
+        CONFIG_PACKAGE_kmod-ahci=y
+        CONFIG_PACKAGE_kmod-libata=y
+        
+        CONFIG_PACKAGE_v2ray-geosite=y
+        CONFIG_PACKAGE_v2ray-geoip=y
+        CONFIG_PACKAGE_chinadns-ng=y
+        
+        CONFIG_PACKAGE_luci-app-ssr-plus=y
+        CONFIG_PACKAGE_luci-app-openclash=y
+        CONFIG_PACKAGE_luci-app-adguardhome=y
+        CONFIG_PACKAGE_luci-app-tailscale=y
+        CONFIG_PACKAGE_luci-app-dockerman=y
+        CONFIG_PACKAGE_luci-app-filebrowser=y
+        CONFIG_PACKAGE_luci-app-sqm=y
+        CONFIG_PACKAGE_ttyd=y
+        CONFIG_PACKAGE_luci-app-ttyd=y
+        CONFIG_PACKAGE_luci-app-diskman=y
+        CONFIG_PACKAGE_luci-app-lxc=y
+        CONFIG_PACKAGE_luci-app-ksmbd=y
+        CONFIG_PACKAGE_luci-app-qbittorrent=y
+        CONFIG_PACKAGE_luci-app-vlmcsd=y
+        CONFIG_PACKAGE_luci-app-filemanager=y
+        CONFIG_PACKAGE_luci-app-daed=y
+        EOF
+        make defconfig
 
-          config interface 'lan'
-              option device '${LAN_IFACE}'
-              option proto 'static'
-              option ipaddr '192.168.1.1'
-              option netmask '255.255.255.0'
-              option ip6assign '60'
-              option dns '223.5.5.5 114.114.114.114'
+    - name: Download package
+      run: |
+        cd openwrt
+        make download -j$(nproc)
+        find dl -size -1024c -exec ls -l {} \;
+        find dl -size -1024c -exec rm -f {} \;
 
-          config interface 'wan'
-              option device '${WAN_IFACE}'
-              option proto 'pppoe'
-              option username '${PPPoE_USERNAME}'
-              option password '${PPPoE_PASSWORD}'
-          EOF
-            echo "PPPoE configured"
-          else
-            cat > package/base-files/files/etc/config/network <<EOF
-          config interface 'loopback'
-              option device 'lo'
-              option proto 'static'
-              option ipaddr '127.0.0.1'
-              option netmask '255.0.0.0'
+    - name: Compile the firmware
+      id: compile
+      run: |
+        cd openwrt
+        echo -e "$(nproc) thread compile"
+        make -j$(nproc) || make -j1 V=s
+        echo "status=success" >> $GITHUB_OUTPUT
+        echo "date=$(date '+%Y%m%d%H%M%S')" >> $GITHUB_OUTPUT
+        echo "FIRMWARE_PATH=$(cd bin/targets/*/* && pwd)" >> $GITHUB_OUTPUT
 
-          config interface 'lan'
-              option device '${LAN_IFACE}'
-              option proto 'static'
-              option ipaddr '192.168.1.1'
-              option netmask '255.255.255.0'
-              option ip6assign '60'
-              option dns '223.5.5.5 114.114.114.114'
+    - name: Check space usage
+      run: df -hT
 
-          config interface 'wan'
-              option device '${WAN_IFACE}'
-              option proto 'dhcp'
-          EOF
-            echo "PPPoE not enabled, using DHCP"
-          fi
+    - name: Organize files
+      run: |
+        cd openwrt/bin/targets/*/*
+        rm -rf packages
+        echo "FIRMWARE_PATH=$PWD" >> $GITHUB_ENV
 
-      - name: Configure Overlay Size
-        run: |
-          cd openwrt
-          OVERLAY_SIZE="${{ github.event.inputs.OVERLAY_SIZE || '256' }}"
-          echo "Overlay size set to ${OVERLAY_SIZE}MB"
-          
-          mkdir -p package/base-files/files/etc/init.d
-          cat > package/base-files/files/etc/init.d/resize-overlay <<EOF
-          #!/bin/sh /etc/rc.common
-          START=99
-          start() {
-              logger "Resizing overlay to ${OVERLAY_SIZE}MB"
-          }
-          EOF
-          chmod +x package/base-files/files/etc/init.d/resize-overlay
+    - name: Upload firmware to artifact
+      uses: actions/upload-artifact@main
+      if: steps.compile.outputs.status == 'success' && env.UPLOAD_FIRMWARE == 'true'
+      with:
+        name: ImmortalWrt-${{ env.VERSION }}-${{ github.event.inputs.CPU_ARCH || 'x86-64' }}-${{ steps.compile.outputs.date }}
+        path: ${{ env.FIRMWARE_PATH }}
 
-      - name: Generate .config
-        id: config
-        run: |
-          cd openwrt
-          cat > .config <<EOF
-          #
-          # ImmortalWrt Configuration
-          # Target: ${{ github.event.inputs.CPU_ARCH || 'x86-64' }}
-          #
+    - name: Create release
+      id: release
+      if: steps.compile.outputs.status == 'success' && env.UPLOAD_RELEASE == 'true'
+      uses: ncipollo/release-action@v1
+      with:
+        name: ImmortalWrt ${{ steps.compile.outputs.date }}
+        tag: ${{ steps.compile.outputs.date }}
+        token: ${{ secrets.GITHUB_TOKEN }}
+        allowUpdates: true
+        replacesArtifacts: true
+        artifacts: ${{ env.FIRMWARE_PATH }}/*.img.gz,${{ env.FIRMWARE_PATH }}/*.iso
 
-          # Target System
-          CONFIG_TARGET_x86=y
-          CONFIG_TARGET_x86_64=y
-          CONFIG_TARGET_x86_64_Generic=y
-          CONFIG_TARGET_PROFILE="GENERIC"
-          CONFIG_TARGET_ALL_PROFILES=y
-          CONFIG_TARGET_PER_DEVICE_ROOTFS=y
-          CONFIG_TARGET_ROOTFS_SQUASHFS=y
-          CONFIG_TARGET_ROOTFS_EXT4FS=y
-          CONFIG_TARGET_ROOTFS_MAXSIZE=2048
-
-          # LuCI Base
-          CONFIG_PACKAGE_luci=y
-          CONFIG_PACKAGE_luci-base=y
-          CONFIG_PACKAGE_luci-compat=y
-          CONFIG_PACKAGE_luci-lib-base=y
-          CONFIG_PACKAGE_luci-lib-ip=y
-          CONFIG_PACKAGE_luci-lib-ipkg=y
-          CONFIG_PACKAGE_luci-lib-jsonc=y
-          CONFIG_PACKAGE_luci-lib-nixio=y
-
-          # LuCI Chinese i18n
-          CONFIG_PACKAGE_luci-i18n-base-zh-cn=y
-          CONFIG_PACKAGE_luci-i18n-admin-zh-cn=y
-          CONFIG_PACKAGE_luci-i18n-firewall-zh-cn=y
-          CONFIG_PACKAGE_luci-i18n-network-zh-cn=y
-          CONFIG_PACKAGE_luci-i18n-system-zh-cn=y
-          CONFIG_PACKAGE_luci-i18n-services-zh-cn=y
-          CONFIG_PACKAGE_luci-i18n-status-zh-cn=y
-          CONFIG_PACKAGE_luci-i18n-nas-zh-cn=y
-          CONFIG_PACKAGE_luci-i18n-docker-zh-cn=y
-          CONFIG_PACKAGE_luci-i18n-ddns-zh-cn=y
-          CONFIG_PACKAGE_luci-i18n-upnp-zh-cn=y
-          CONFIG_PACKAGE_luci-i18n-vpn-zh-cn=y
-          CONFIG_PACKAGE_luci-i18n-transmission-zh-cn=y
-          CONFIG_PACKAGE_luci-i18n-samba-zh-cn=y
-          CONFIG_PACKAGE_luci-i18n-commands-zh-cn=y
-          CONFIG_PACKAGE_luci-i18n-filetransfer-zh-cn=y
-          CONFIG_PACKAGE_luci-i18n-ttyd-zh-cn=y
-
-          # USB Support
-          CONFIG_PACKAGE_kmod-usb-core=y
-          CONFIG_PACKAGE_kmod-usb2=y
-          CONFIG_PACKAGE_kmod-usb3=y
-          CONFIG_PACKAGE_kmod-usb-storage=y
-          CONFIG_PACKAGE_kmod-usb-storage-extras=y
-          CONFIG_PACKAGE_kmod-usb-ohci=y
-          CONFIG_PACKAGE_kmod-usb-uhci=y
-          CONFIG_PACKAGE_kmod-usb-ehci=y
-          CONFIG_PACKAGE_kmod-usb-xhci=y
-          CONFIG_PACKAGE_kmod-usb-printer=y
-          CONFIG_PACKAGE_kmod-usb-audio=y
-          CONFIG_PACKAGE_kmod-usb-hid=y
-          CONFIG_PACKAGE_kmod-usb-serial=y
-          CONFIG_PACKAGE_kmod-usb-serial-cp210x=y
-          CONFIG_PACKAGE_kmod-usb-serial-ftdi=y
-          CONFIG_PACKAGE_kmod-usb-serial-pl2303=y
-          CONFIG_PACKAGE_kmod-usb-storage-uas=n
-          CONFIG_PACKAGE_automount=n
-
-          # SATA Support
-          CONFIG_PACKAGE_kmod-sata-sil=y
-          CONFIG_PACKAGE_kmod-sata-sil24=y
-          CONFIG_PACKAGE_kmod-sata-ahci=y
-          CONFIG_PACKAGE_kmod-sata-via=y
-          CONFIG_PACKAGE_kmod-sata-promise=y
-          CONFIG_PACKAGE_kmod-sata-nv=y
-          CONFIG_PACKAGE_kmod-sata-uli=y
-          CONFIG_PACKAGE_kmod-ahci=y
-          CONFIG_PACKAGE_kmod-libata=y
-          CONFIG_PACKAGE_kmod-scsi-core=y
-
-          # Third-party Plugins
-          CONFIG_PACKAGE_luci-app-adguardhome=y
-          CONFIG_PACKAGE_luci-app-openclash=y
-          CONFIG_PACKAGE_luci-app-tailscale=y
-          CONFIG_PACKAGE_luci-app-dockerman=y
-          CONFIG_PACKAGE_luci-app-filebrowser=y
-          CONFIG_PACKAGE_luci-app-sqm=y
-          CONFIG_PACKAGE_ttyd=y
-          CONFIG_PACKAGE_luci-app-ttyd=y
-          CONFIG_PACKAGE_luci-app-diskman=y
-          CONFIG_PACKAGE_luci-app-lxc=y
-          CONFIG_PACKAGE_luci-app-ssr-plus=y
-          CONFIG_PACKAGE_luci-app-smartdns=y
-
-          # VPN Proxy Dependencies
-          CONFIG_PACKAGE_v2ray-geosite=y
-          CONFIG_PACKAGE_v2ray-geoip=y
-          CONFIG_PACKAGE_chinadns-ng=y
-          CONFIG_PACKAGE_smartdns=y
-
-          # Base Dependencies
-          CONFIG_PACKAGE_coreutils=y
-          CONFIG_PACKAGE_coreutils-base64=y
-          CONFIG_PACKAGE_coreutils-nohup=y
-          CONFIG_PACKAGE_coreutils-tr=y
-          CONFIG_PACKAGE_curl=y
-          CONFIG_PACKAGE_libcurl=y
-          CONFIG_PACKAGE_wget=y
-          CONFIG_PACKAGE_wget-ssl=y
-          CONFIG_PACKAGE_git=y
-          CONFIG_PACKAGE_git-http=y
-          CONFIG_PACKAGE_htop=y
-          CONFIG_PACKAGE_nano=y
-          CONFIG_PACKAGE_tmux=y
-          CONFIG_PACKAGE_screen=y
-          CONFIG_PACKAGE_bash=y
-          CONFIG_PACKAGE_zsh=y
-          CONFIG_PACKAGE_fuse-utils=y
-          CONFIG_PACKAGE_kmod-fuse=y
-          CONFIG_PACKAGE_kmod-fs-ext4=y
-          CONFIG_PACKAGE_kmod-fs-vfat=y
-          CONFIG_PACKAGE_kmod-fs-ntfs=y
-          CONFIG_PACKAGE_kmod-fs-ntfs3=y
-          CONFIG_PACKAGE_kmod-fs-exfat=y
-          CONFIG_PACKAGE_kmod-fs-btrfs=y
-          CONFIG_PACKAGE_kmod-fs-xfs=y
-          CONFIG_PACKAGE_kmod-fs-squashfs=y
-          CONFIG_PACKAGE_e2fsprogs=y
-          CONFIG_PACKAGE_mke2fs=y
-          CONFIG_PACKAGE_blkid=y
-          CONFIG_PACKAGE_block-mount=y
-          CONFIG_PACKAGE_parted=y
-          CONFIG_PACKAGE_lsblk=y
-          CONFIG_PACKAGE_fdisk=y
-          CONFIG_PACKAGE_mtd=y
-          CONFIG_PACKAGE_openssh-sftp-server=y
-          CONFIG_PACKAGE_rpcd=y
-          CONFIG_PACKAGE_rpcd-mod-file=y
-          CONFIG_PACKAGE_rpcd-mod-iwinfo=y
-          CONFIG_PACKAGE_ubus=y
-          CONFIG_PACKAGE_uci=y
-          CONFIG_PACKAGE_uhttpd=y
-          CONFIG_PACKAGE_uhttpd-mod-ubus=y
-          CONFIG_PACKAGE_ipv6helper=y
-          CONFIG_PACKAGE_ppp=y
-          CONFIG_PACKAGE_ppp-mod-pppoe=y
-          CONFIG_PACKAGE_kmod-ppp=y
-          CONFIG_PACKAGE_kmod-pppoe=y
-          CONFIG_PACKAGE_dnsmasq-full=y
-          CONFIG_PACKAGE_firewall4=y
-          CONFIG_PACKAGE_nftables=y
-          CONFIG_PACKAGE_iptables=y
-          CONFIG_PACKAGE_ipset=y
-          CONFIG_PACKAGE_ca-bundle=y
-          CONFIG_PACKAGE_ca-certificates=y
-          EOF
-          
-          make defconfig
-          echo "status=success" >> $GITHUB_OUTPUT
-
-      - name: Download Packages
-        id: download
-        run: |
-          cd openwrt
-          make download -j$(nproc)
-          find dl -size -1024c -exec ls -l {} \;
-          find dl -size -1024c -exec rm -f {} \;
-          echo "status=success" >> $GITHUB_OUTPUT
-
-      - name: Compile Firmware
-        id: compile
-        run: |
-          cd openwrt
-          echo -e "$(nproc) thread compile"
-          make -j$(nproc) || make -j1 V=s
-          echo "status=success" >> $GITHUB_OUTPUT
-          echo "date=$(date '+%Y%m%d%H%M%S')" >> $GITHUB_OUTPUT
-          echo "date_short=$(date '+%Y%m%d')" >> $GITHUB_OUTPUT
-          echo "FIRMWARE_PATH=$(cd bin/targets/*/* && pwd)" >> $GITHUB_OUTPUT
-
-      - name: Check Space Usage
-        run: |
-          df -hT
-          du -h openwrt/bin
-
-      - name: Organize Files
-        id: organize
-        run: |
-          cd openwrt/bin/targets/*/*
-          rm -rf packages
-          rm -rf *profile.json
-          rm -rf *manifest
-          rm -rf *buildinfo
-          rm -rf *kernel
-          rm -rf *itb
-          ls -la
-          echo "FIRMWARE_PATH=$PWD" >> $GITHUB_ENV
-
-      - name: Upload Firmware to Artifact
-        uses: actions/upload-artifact@v4
-        if: steps.compile.outputs.status == 'success' && env.UPLOAD_FIRMWARE == 'true'
-        with:
-          name: ImmortalWrt-${{ env.VERSION }}-${{ github.event.inputs.CPU_ARCH || 'x86-64' }}-${{ steps.compile.outputs.date_short }}
-          path: ${{ env.FIRMWARE_PATH }}
-
-      - name: Create Release
-        id: release
-        if: steps.compile.outputs.status == 'success' && env.UPLOAD_RELEASE == 'true'
-        uses: ncipollo/release-action@v1
-        with:
-          name: ImmortalWrt ${{ env.VERSION }} ${{ steps.compile.outputs.date_short }}
-          tag: ${{ steps.compile.outputs.date }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-          allowUpdates: true
-          replacesArtifacts: true
-          artifacts: ${{ env.FIRMWARE_PATH }}/*.img.gz,${{ env.FIRMWARE_PATH }}/*.iso,${{ env.FIRMWARE_PATH }}/*.vmdk,${{ env.FIRMWARE_PATH }}/*.qcow2,${{ env.FIRMWARE_PATH }}/*.ext4.gz,${{ env.FIRMWARE_PATH }}/*.combined.img.gz
-
-      - name: Delete Old Releases
-        uses: dev-drprasad/delete-older-releases@v0.3.2
-        if: env.UPLOAD_RELEASE == 'true' && !cancelled()
-        with:
-          keep_latest: 5
-          delete_tags: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  notify:
-    needs: build
-    runs-on: ubuntu-22.04
-    if: always()
-    steps:
-      - name: Notify Build Status
-        run: |
-          if [ "${{ needs.build.result }}" == "success" ]; then
-            echo "Build Success!"
-            echo "Release URL: ${{ needs.build.outputs.release_url }}"
-          elif [ "${{ needs.build.result }}" == "failure" ]; then
-            echo "Build Failed!"
-            exit 1
-          else
-            echo "Build Cancelled or Skipped"
-          fi
+    - name: Delete old releases
+      uses: dev-drprasad/delete-older-releases@v0.3.2
+      if: env.UPLOAD_RELEASE == 'true' && !cancelled()
+      with:
+        keep_latest: 5
+        delete_tags: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
